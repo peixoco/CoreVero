@@ -29,7 +29,7 @@ on conflict do nothing;
 -- =====================================================================
 -- TESTE 1 — Empresa A vê só o seu (contagens exatas + zero da B)
 -- =====================================================================
-set request.jwt.claims = '{"app_metadata":{"empresa_id":"11111111-1111-1111-1111-111111111111"}}';
+set request.jwt.claims = '{"app_metadata":{"empresa_id":"11111111-1111-1111-1111-111111111111","tipo":"admin","loja_id":null}}';
 set role authenticated;
 
 do $$
@@ -70,7 +70,7 @@ reset role;
 -- =====================================================================
 -- TESTE 2 — Empresa B vê só o seu (simétrico)
 -- =====================================================================
-set request.jwt.claims = '{"app_metadata":{"empresa_id":"22222222-2222-2222-2222-222222222222"}}';
+set request.jwt.claims = '{"app_metadata":{"empresa_id":"22222222-2222-2222-2222-222222222222","tipo":"admin","loja_id":null}}';
 set role authenticated;
 
 do $$
@@ -88,7 +88,7 @@ reset role;
 -- Como A, inserir uma loja com empresa_id=B tem de falhar (42501).
 -- Inserir na própria empresa (A) tem de funcionar.
 -- =====================================================================
-set request.jwt.claims = '{"app_metadata":{"empresa_id":"11111111-1111-1111-1111-111111111111"}}';
+set request.jwt.claims = '{"app_metadata":{"empresa_id":"11111111-1111-1111-1111-111111111111","tipo":"admin","loja_id":null}}';
 set role authenticated;
 
 do $$
@@ -106,6 +106,10 @@ begin
   insert into loja (empresa_id, nome, ativa)
     values ('11111111-1111-1111-1111-111111111111', 'loja legítima de A', true);
   if (select count(*) from loja) <> 3 then raise exception 'A devia ver 3 lojas após inserir'; end if;
+
+  -- limpar para o teste não mutar o estado (composição com outros testes)
+  delete from loja where empresa_id = '11111111-1111-1111-1111-111111111111'
+                     and nome = 'loja legítima de A';
 
   raise notice 'TESTE 3 (escrita cross-tenant barrada, escrita própria OK): OK';
 end $$;
