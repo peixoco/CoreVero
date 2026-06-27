@@ -704,14 +704,83 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vista_picagem: {
+        Row: {
+          codigo_pessoal: string | null
+          empresa_id: string | null
+          foto_url: string | null
+          loja_id: string | null
+          loja_nome: string | null
+          momento_dispositivo: string | null
+          momento_servidor: string | null
+          picagem_id: string | null
+          tipo: string | null
+          trabalhador_id: string | null
+          trabalhador_nome: string | null
+          verificacao_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "picagem_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresa"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      atualizar_colaborador: {
+        Args: {
+          p_area: string
+          p_contrato_fim?: string
+          p_contrato_inicio?: string
+          p_data_nascimento?: string
+          p_email?: string
+          p_id: string
+          p_nome: string
+          p_nome_completo?: string
+          p_posicao?: string
+          p_telefone?: string
+        }
+        Returns: undefined
+      }
+      criar_colaborador: {
+        Args: {
+          p_area: string
+          p_contrato_fim?: string
+          p_contrato_inicio?: string
+          p_data_nascimento?: string
+          p_email?: string
+          p_nome: string
+          p_nome_completo?: string
+          p_posicao?: string
+          p_telefone?: string
+        }
+        Returns: {
+          codigo_pessoal: string
+          pin: string
+          trabalhador_id: string
+        }[]
+      }
       empresa_atual: { Args: never; Returns: string }
+      gerar_novo_pin: { Args: { p_trabalhador_id: string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_kiosk: { Args: never; Returns: boolean }
       jwt_app_meta: { Args: never; Returns: Json }
       loja_atual: { Args: never; Returns: string }
+      registar_picagem: {
+        Args: {
+          p_codigo_pessoal: string
+          p_foto_url: string
+          p_momento_dispositivo: string
+          p_pin: string
+          p_tipo: string
+          p_verificacao_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

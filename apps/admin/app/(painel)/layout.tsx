@@ -8,6 +8,7 @@ import Image from "next/image";
 const NAV = [
   { href: "/", label: "Início" },
   { href: "/colaboradores", label: "Colaboradores" },
+  { href: "/picagens", label: "Picagens" },
 ];
 
 export default function PainelLayout({
