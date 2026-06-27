@@ -19,6 +19,14 @@ const TIPO_LABEL: Record<string, string> = {
   fim_intervalo: "Fim intervalo",
 };
 
+function fmt(ts: string) {
+  return new Date(ts).toLocaleString("pt-PT", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "Europe/Lisbon",
+  });
+}
+
 export default function Picagens() {
   const [linhas, setLinhas] = useState<Picagem[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -47,12 +55,6 @@ export default function Picagens() {
     }
     window.open(data.signedUrl, "_blank");
   }
-
-  const fmt = (ts: string) =>
-    new Date(ts).toLocaleString("pt-PT", {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
 
   return (
     <div>
