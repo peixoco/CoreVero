@@ -49,7 +49,7 @@ export default function PainelLayout({
         <div className="px-6 py-6">
           <Link href="/" className="block">
             <Image
-              src="/wordmark.png"
+              src="/wordmark-papel.png"
               alt="CoreVero"
               width={150}
               height={59}

@@ -8,6 +8,6 @@
 }
 
 body {
-  background: #f7f6f2;
-  color: #10202e;
+  background-color: var(--color-papel);
+  color: var(--color-tinta);
 }
