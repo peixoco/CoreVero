@@ -48,13 +48,7 @@ export default function PainelLayout({
       <aside className="w-60 shrink-0 bg-tinta text-papel flex flex-col">
         <div className="px-6 py-6">
           <Link href="/" className="block">
-            <Image
-              src="/wordmark-papel.png"
-              alt="CoreVero"
-              width={150}
-              height={59}
-              priority
-            />
+            <img src="/wordmark-papel.png" alt="CoreVero" width={150} />
           </Link>
         </div>
         <nav className="flex-1 px-3 space-y-1">
