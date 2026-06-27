@@ -56,7 +56,11 @@ export default function Colaboradores() {
           <tbody>
             {linhas.map((l) => (
               <tr key={l.id} className="border-b">
-                <td className="py-2">{l.nome}</td>
+                <td className="py-2">
+                  <Link href={`/colaboradores/${l.id}`} className="underline">
+                    {l.nome}
+                  </Link>
+                </td>
                 <td>{l.codigo_pessoal}</td>
                 <td>{l.area ?? "—"}</td>
                 <td>{l.ativo ? "sim" : "não"}</td>
