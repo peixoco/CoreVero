@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
@@ -26,7 +27,14 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
       <form onSubmit={entrar} className="w-full max-w-sm space-y-4">
-        <h1 className="text-2xl font-semibold">CoreVero — entrar</h1>
+        <Image
+          src="/wordmark.png"
+          alt="CoreVero"
+          width={240}
+          height={120}
+          priority
+          className="mx-auto"
+        />
         <input
           type="email"
           placeholder="email"

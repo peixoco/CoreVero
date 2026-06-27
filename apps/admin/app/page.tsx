@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import Image from "next/image";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
   const router = useRouter();
@@ -26,16 +27,24 @@ export default function Home() {
 
   return (
     <main className="p-6 space-y-4">
-      <h1 className="text-2xl font-semibold">CoreVero — Admin</h1>
+      <Image
+        src="/wordmark.png"
+        alt="CoreVero"
+        width={200}
+        height={100}
+        priority
+      />
       <p>
         Sessão: <strong>{email}</strong>
       </p>
+      <nav className="flex gap-4">
+        <Link href="/colaboradores" className="underline">
+          Gerir colaboradores →
+        </Link>
+      </nav>
       <button onClick={sair} className="border rounded px-3 py-1">
         Terminar sessão
       </button>
-      <Link href="/colaboradores" className="underline">
-        Gerir colaboradores →
-      </Link>
     </main>
   );
 }
