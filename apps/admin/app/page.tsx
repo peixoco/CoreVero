@@ -32,6 +32,9 @@ export default function Home() {
       <button onClick={sair} className="border rounded px-3 py-1">
         Terminar sessão
       </button>
+      <Link href="/colaboradores" className="underline">
+        Gerir colaboradores →
+      </Link>
     </main>
   );
 }
