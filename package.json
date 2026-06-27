@@ -1,4 +1,10 @@
 {
+  "name": "corevero",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "devDependencies": {
     "supabase": "^2.108.0"
   }
