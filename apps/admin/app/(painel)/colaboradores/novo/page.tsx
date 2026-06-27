@@ -1,36 +1,30 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 const AREAS = ["cozinha", "sala", "copa", "bar", "economato", "escritório"];
+const inp =
+  "w-full rounded-lg border border-cinza/30 bg-white px-3 py-2 outline-none focus:border-teal focus:ring-2 focus:ring-teal/20";
 
 export default function NovoColaborador() {
   const router = useRouter();
-  const [pronto, setPronto] = useState(false);
   const [aGravar, setAGravar] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [criado, setCriado] = useState<{ codigo: string; pin: string } | null>(
     null,
   );
-
   const [form, setForm] = useState({
     nome: "",
     area: "cozinha",
     nome_completo: "",
+    data_nascimento: "",
     posicao: "",
     contrato_inicio: "",
     contrato_fim: "",
     telefone: "",
     email: "",
   });
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) return router.replace("/login");
-      setPronto(true);
-    });
-  }, [router]);
 
   function set(k: string, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -45,6 +39,7 @@ export default function NovoColaborador() {
       p_nome: form.nome,
       p_area: form.area,
       p_nome_completo: nn(form.nome_completo),
+      p_data_nascimento: nn(form.data_nascimento),
       p_posicao: nn(form.posicao),
       p_contrato_inicio: nn(form.contrato_inicio),
       p_contrato_fim: nn(form.contrato_fim),
@@ -57,25 +52,22 @@ export default function NovoColaborador() {
     setCriado({ codigo: row.codigo_pessoal, pin: row.pin });
   }
 
-  if (!pronto) return <main className="p-6">A carregar…</main>;
-
   if (criado)
     return (
-      <main className="p-6 max-w-md space-y-4">
-        <h1 className="text-2xl font-semibold">Colaborador criado</h1>
-        <div className="border rounded p-4 bg-green-50 space-y-1">
-          <p>
-            Código: <strong>{criado.codigo}</strong>
+      <div className="max-w-md">
+        <h1 className="text-2xl font-bold mb-6">Colaborador criado</h1>
+        <div className="bg-white rounded-xl border border-teal/30 shadow-sm p-6">
+          <p className="text-cinza text-sm">Código</p>
+          <p className="text-xl font-semibold mb-3">{criado.codigo}</p>
+          <p className="text-cinza text-sm">PIN</p>
+          <p className="text-3xl font-bold tracking-[0.3em] text-teal">
+            {criado.pin}
           </p>
-          <p>
-            PIN:{" "}
-            <strong className="text-2xl tracking-widest">{criado.pin}</strong>
-          </p>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-cinza pt-3">
             Comunica este PIN ao colaborador. Podes regenerá-lo depois.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 mt-4">
           <button
             onClick={() => {
               setCriado(null);
@@ -83,44 +75,48 @@ export default function NovoColaborador() {
                 ...form,
                 nome: "",
                 nome_completo: "",
+                data_nascimento: "",
                 posicao: "",
                 telefone: "",
                 email: "",
               });
             }}
-            className="border rounded px-3 py-2"
+            className="rounded-lg border border-cinza/40 px-4 py-2 hover:bg-black/5"
           >
             Criar outro
           </button>
           <button
             onClick={() => router.push("/colaboradores")}
-            className="bg-black text-white rounded px-3 py-2"
+            className="rounded-lg bg-teal text-papel px-4 py-2 hover:brightness-110"
           >
             Ver lista
           </button>
         </div>
-      </main>
+      </div>
     );
 
   return (
-    <main className="p-6 max-w-md space-y-4">
-      <h1 className="text-2xl font-semibold">Novo colaborador</h1>
-      <form onSubmit={gravar} className="space-y-3">
+    <div className="max-w-md">
+      <h1 className="text-2xl font-bold mb-6">Novo colaborador</h1>
+      <form
+        onSubmit={gravar}
+        className="space-y-4 bg-white rounded-xl border border-black/5 shadow-sm p-6"
+      >
         <label className="block">
-          Nome (kiosk) *
+          <span className="text-sm font-medium">Nome (kiosk) *</span>
           <input
             required
             value={form.nome}
             onChange={(e) => set("nome", e.target.value)}
-            className="w-full border rounded px-3 py-2 mt-1"
+            className={`${inp} mt-1`}
           />
         </label>
         <label className="block">
-          Área *
+          <span className="text-sm font-medium">Área *</span>
           <select
             value={form.area}
             onChange={(e) => set("area", e.target.value)}
-            className="w-full border rounded px-3 py-2 mt-1"
+            className={`${inp} mt-1`}
           >
             {AREAS.map((a) => (
               <option key={a} value={a}>
@@ -130,76 +126,76 @@ export default function NovoColaborador() {
           </select>
         </label>
         <label className="block">
-          Nome completo
+          <span className="text-sm font-medium">Nome completo</span>
           <input
             value={form.nome_completo}
             onChange={(e) => set("nome_completo", e.target.value)}
-            className="w-full border rounded px-3 py-2 mt-1"
+            className={`${inp} mt-1`}
           />
         </label>
         <label className="block">
-          Data de nascimento
+          <span className="text-sm font-medium">Data de nascimento</span>
           <input
             type="date"
             value={form.data_nascimento}
             onChange={(e) => set("data_nascimento", e.target.value)}
-            className="w-full border rounded px-3 py-2 mt-1"
+            className={`${inp} mt-1`}
           />
         </label>
         <label className="block">
-          Posição
+          <span className="text-sm font-medium">Posição</span>
           <input
             value={form.posicao}
             onChange={(e) => set("posicao", e.target.value)}
-            className="w-full border rounded px-3 py-2 mt-1"
+            className={`${inp} mt-1`}
           />
         </label>
         <div className="flex gap-3">
           <label className="block flex-1">
-            Início contrato
+            <span className="text-sm font-medium">Início contrato</span>
             <input
               type="date"
               value={form.contrato_inicio}
               onChange={(e) => set("contrato_inicio", e.target.value)}
-              className="w-full border rounded px-3 py-2 mt-1"
+              className={`${inp} mt-1`}
             />
           </label>
           <label className="block flex-1">
-            Fim contrato
+            <span className="text-sm font-medium">Fim contrato</span>
             <input
               type="date"
               value={form.contrato_fim}
               onChange={(e) => set("contrato_fim", e.target.value)}
-              className="w-full border rounded px-3 py-2 mt-1"
+              className={`${inp} mt-1`}
             />
           </label>
         </div>
         <label className="block">
-          Telefone
+          <span className="text-sm font-medium">Telefone</span>
           <input
             value={form.telefone}
             onChange={(e) => set("telefone", e.target.value)}
-            className="w-full border rounded px-3 py-2 mt-1"
+            className={`${inp} mt-1`}
           />
         </label>
         <label className="block">
-          Email
+          <span className="text-sm font-medium">Email</span>
           <input
             type="email"
             value={form.email}
             onChange={(e) => set("email", e.target.value)}
-            className="w-full border rounded px-3 py-2 mt-1"
+            className={`${inp} mt-1`}
           />
         </label>
         {erro && <p className="text-red-600 text-sm">{erro}</p>}
         <button
           type="submit"
           disabled={aGravar}
-          className="w-full bg-black text-white rounded py-2 disabled:opacity-50"
+          className="w-full rounded-lg bg-teal text-papel py-2.5 font-medium hover:brightness-110 disabled:opacity-50"
         >
           {aGravar ? "A criar…" : "Criar colaborador"}
         </button>
       </form>
-    </main>
+    </div>
   );
 }

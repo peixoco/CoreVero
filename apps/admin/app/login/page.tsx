@@ -25,13 +25,16 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <form onSubmit={entrar} className="w-full max-w-sm space-y-4">
+    <main className="min-h-screen grid place-items-center p-6">
+      <form
+        onSubmit={entrar}
+        className="w-full max-w-sm bg-white rounded-2xl border border-black/5 shadow-sm p-8 space-y-5"
+      >
         <Image
           src="/wordmark.png"
           alt="CoreVero"
-          width={240}
-          height={120}
+          width={200}
+          height={100}
           priority
           className="mx-auto"
         />
@@ -41,7 +44,7 @@ export default function LoginPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="w-full border rounded px-3 py-2"
+          className="w-full rounded-lg border border-cinza/30 px-3 py-2 outline-none focus:border-teal focus:ring-2 focus:ring-teal/20"
         />
         <input
           type="password"
@@ -49,13 +52,13 @@ export default function LoginPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          className="w-full border rounded px-3 py-2"
+          className="w-full rounded-lg border border-cinza/30 px-3 py-2 outline-none focus:border-teal focus:ring-2 focus:ring-teal/20"
         />
         {erro && <p className="text-red-600 text-sm">{erro}</p>}
         <button
           type="submit"
           disabled={aEntrar}
-          className="w-full bg-black text-white rounded py-2 disabled:opacity-50"
+          className="w-full rounded-lg bg-teal text-papel py-2.5 font-medium hover:brightness-110 disabled:opacity-50"
         >
           {aEntrar ? "A entrar…" : "Entrar"}
         </button>

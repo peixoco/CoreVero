@@ -4,18 +4,18 @@ import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 const AREAS = ["cozinha", "sala", "copa", "bar", "economato", "escritório"];
+const inp =
+  "w-full rounded-lg border border-cinza/30 bg-white px-3 py-2 outline-none focus:border-teal focus:ring-2 focus:ring-teal/20";
 
 export default function EditarColaborador() {
   const router = useRouter();
   const id = useParams().id as string;
-
   const [pronto, setPronto] = useState(false);
   const [aGravar, setAGravar] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [ativo, setAtivo] = useState(true);
   const [novoPin, setNovoPin] = useState<string | null>(null);
-
   const [form, setForm] = useState({
     nome: "",
     area: "cozinha",
@@ -29,8 +29,7 @@ export default function EditarColaborador() {
   });
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!data.session) return router.replace("/login");
+    (async () => {
       const { data: t, error: e1 } = await supabase
         .from("trabalhador")
         .select("nome, area, ativo")
@@ -59,8 +58,8 @@ export default function EditarColaborador() {
         email: d?.email ?? "",
       });
       setPronto(true);
-    });
-  }, [id, router]);
+    })();
+  }, [id]);
 
   function set(k: string, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -88,7 +87,6 @@ export default function EditarColaborador() {
     if (error) return setErro(error.message);
     setMsg("Guardado.");
   }
-
   async function alternarAtivo() {
     setErro(null);
     setMsg(null);
@@ -100,7 +98,6 @@ export default function EditarColaborador() {
     setAtivo(!ativo);
     setMsg(!ativo ? "Reativado." : "Desativado.");
   }
-
   async function regenerarPin() {
     setErro(null);
     setMsg(null);
@@ -112,47 +109,57 @@ export default function EditarColaborador() {
     setNovoPin(data as string);
   }
 
-  if (!pronto) return <main className="p-6">A carregar…</main>;
+  if (!pronto) return <p className="text-cinza">A carregar…</p>;
 
   return (
-    <main className="p-6 max-w-md space-y-4">
-      <h1 className="text-2xl font-semibold">Editar colaborador</h1>
-
-      <div className="flex items-center gap-3">
-        <span className={ativo ? "text-green-700" : "text-gray-500"}>
-          {ativo ? "Ativo" : "Inativo"}
+    <div className="max-w-md">
+      <h1 className="text-2xl font-bold mb-6">Editar colaborador</h1>
+      <div className="bg-white rounded-xl border border-black/5 shadow-sm p-5 mb-4 flex items-center gap-3 flex-wrap">
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs ${ativo ? "bg-teal/10 text-teal" : "bg-cinza/15 text-cinza"}`}
+        >
+          {ativo ? "ativo" : "inativo"}
         </span>
-        <button onClick={alternarAtivo} className="border rounded px-3 py-1">
+        <button
+          onClick={alternarAtivo}
+          className="rounded-lg border border-cinza/40 px-3 py-1.5 text-sm hover:bg-black/5"
+        >
           {ativo ? "Desativar" : "Reativar"}
         </button>
-        <button onClick={regenerarPin} className="border rounded px-3 py-1">
+        <button
+          onClick={regenerarPin}
+          className="rounded-lg border border-cinza/40 px-3 py-1.5 text-sm hover:bg-black/5"
+        >
           Regenerar PIN
         </button>
+        {novoPin && (
+          <span className="text-sm">
+            Novo PIN:{" "}
+            <strong className="text-teal text-lg tracking-widest">
+              {novoPin}
+            </strong>
+          </span>
+        )}
       </div>
-      {novoPin && (
-        <p>
-          Novo PIN:{" "}
-          <strong className="text-xl tracking-widest">{novoPin}</strong> —
-          comunica ao colaborador.
-        </p>
-      )}
-
-      <form onSubmit={gravar} className="space-y-3">
+      <form
+        onSubmit={gravar}
+        className="space-y-4 bg-white rounded-xl border border-black/5 shadow-sm p-6"
+      >
         <label className="block">
-          Nome (kiosk) *
+          <span className="text-sm font-medium">Nome (kiosk) *</span>
           <input
             required
             value={form.nome}
             onChange={(e) => set("nome", e.target.value)}
-            className="w-full border rounded px-3 py-2 mt-1"
+            className={`${inp} mt-1`}
           />
         </label>
         <label className="block">
-          Área *
+          <span className="text-sm font-medium">Área *</span>
           <select
             value={form.area}
             onChange={(e) => set("area", e.target.value)}
-            className="w-full border rounded px-3 py-2 mt-1"
+            className={`${inp} mt-1`}
           >
             {AREAS.map((a) => (
               <option key={a} value={a}>
@@ -162,86 +169,86 @@ export default function EditarColaborador() {
           </select>
         </label>
         <label className="block">
-          Nome completo
+          <span className="text-sm font-medium">Nome completo</span>
           <input
             value={form.nome_completo}
             onChange={(e) => set("nome_completo", e.target.value)}
-            className="w-full border rounded px-3 py-2 mt-1"
+            className={`${inp} mt-1`}
           />
         </label>
         <label className="block">
-          Data de nascimento
+          <span className="text-sm font-medium">Data de nascimento</span>
           <input
             type="date"
             value={form.data_nascimento}
             onChange={(e) => set("data_nascimento", e.target.value)}
-            className="w-full border rounded px-3 py-2 mt-1"
+            className={`${inp} mt-1`}
           />
         </label>
         <label className="block">
-          Posição
+          <span className="text-sm font-medium">Posição</span>
           <input
             value={form.posicao}
             onChange={(e) => set("posicao", e.target.value)}
-            className="w-full border rounded px-3 py-2 mt-1"
+            className={`${inp} mt-1`}
           />
         </label>
         <div className="flex gap-3">
           <label className="block flex-1">
-            Início contrato
+            <span className="text-sm font-medium">Início contrato</span>
             <input
               type="date"
               value={form.contrato_inicio}
               onChange={(e) => set("contrato_inicio", e.target.value)}
-              className="w-full border rounded px-3 py-2 mt-1"
+              className={`${inp} mt-1`}
             />
           </label>
           <label className="block flex-1">
-            Fim contrato
+            <span className="text-sm font-medium">Fim contrato</span>
             <input
               type="date"
               value={form.contrato_fim}
               onChange={(e) => set("contrato_fim", e.target.value)}
-              className="w-full border rounded px-3 py-2 mt-1"
+              className={`${inp} mt-1`}
             />
           </label>
         </div>
         <label className="block">
-          Telefone
+          <span className="text-sm font-medium">Telefone</span>
           <input
             value={form.telefone}
             onChange={(e) => set("telefone", e.target.value)}
-            className="w-full border rounded px-3 py-2 mt-1"
+            className={`${inp} mt-1`}
           />
         </label>
         <label className="block">
-          Email
+          <span className="text-sm font-medium">Email</span>
           <input
             type="email"
             value={form.email}
             onChange={(e) => set("email", e.target.value)}
-            className="w-full border rounded px-3 py-2 mt-1"
+            className={`${inp} mt-1`}
           />
         </label>
         {erro && <p className="text-red-600 text-sm">{erro}</p>}
-        {msg && <p className="text-green-700 text-sm">{msg}</p>}
+        {msg && <p className="text-teal text-sm">{msg}</p>}
         <div className="flex gap-3">
           <button
             type="submit"
             disabled={aGravar}
-            className="bg-black text-white rounded px-4 py-2 disabled:opacity-50"
+            className="rounded-lg bg-teal text-papel px-5 py-2.5 font-medium hover:brightness-110 disabled:opacity-50"
           >
             {aGravar ? "A guardar…" : "Guardar"}
           </button>
           <button
             type="button"
             onClick={() => router.push("/colaboradores")}
-            className="border rounded px-4 py-2"
+            className="rounded-lg border border-cinza/40 px-5 py-2.5 hover:bg-black/5"
           >
             Voltar
           </button>
         </div>
       </form>
-    </main>
+    </div>
   );
 }
