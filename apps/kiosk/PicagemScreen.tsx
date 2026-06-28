@@ -13,7 +13,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Pressable, StyleSheet, Text, View,
+  ActivityIndicator, Dimensions, Image, Pressable, StyleSheet, Text, View,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { decode } from 'base64-arraybuffer';
@@ -24,6 +24,9 @@ const TINTA = '#10202E';
 const TEAL  = '#16A37D';
 const PAPEL = '#F7F6F2';
 const CINZA = '#6B7C8C';
+
+// Diâmetro da janela circular da câmara (limitado para não colar às margens).
+const CIRCULO = Math.min(Dimensions.get('window').width - 64, 320);
 
 // --- Tipos de picagem ---------------------------------------------------------
 type Tipo = 'entrada' | 'saida' | 'inicio_intervalo' | 'fim_intervalo';
@@ -261,18 +264,26 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
 
       {fase === 'camera' && (
         <View style={s.cameraWrap}>
-          <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="front" />
-          <View style={s.cameraOverlay}>
-            <Text style={s.cameraTitulo}>
-              {nome} · {tipo ? LABEL[tipo] : ''}
-            </Text>
-            <Pressable style={s.shutter} onPress={capturarERegistar}>
-              <Text style={s.shutterTxt}>Confirmar picagem</Text>
-            </Pressable>
-            <Pressable style={s.link} onPress={reset}>
-              <Text style={[s.linkTxt, { color: PAPEL }]}>Cancelar</Text>
-            </Pressable>
+          <Text style={s.cameraTitulo}>
+            {nome}{tipo ? ` · ${LABEL[tipo]}` : ''}
+          </Text>
+
+          <View style={s.circulo}>
+            <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="front" />
           </View>
+
+          <Image
+            source={require('./assets/wordmark-papel.png')}
+            style={s.wordmark}
+            resizeMode="contain"
+          />
+
+          <Pressable style={s.shutter} onPress={capturarERegistar}>
+            <Text style={s.shutterTxt}>Confirmar picagem</Text>
+          </Pressable>
+          <Pressable style={s.link} onPress={reset}>
+            <Text style={[s.linkTxt, { color: CINZA }]}>Cancelar</Text>
+          </Pressable>
         </View>
       )}
 
@@ -384,10 +395,15 @@ const s = StyleSheet.create({
   tipoTxt:  { fontSize: 20, color: TINTA, fontWeight: '600' },
   tipoTxtSel: { color: PAPEL },
 
-  cameraWrap:    { flex: 1, backgroundColor: '#000' },
-  cameraOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center', paddingBottom: 48, paddingTop: 24 },
-  cameraTitulo:  { color: PAPEL, fontSize: 18, fontWeight: '600', marginBottom: 16 },
-  shutter:    { backgroundColor: TEAL, paddingVertical: 18, paddingHorizontal: 40, borderRadius: 16 },
+  cameraWrap:    { flex: 1, backgroundColor: TINTA, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  cameraTitulo:  { color: PAPEL, fontSize: 22, fontWeight: '700', marginBottom: 28, textAlign: 'center' },
+  circulo: {
+    width: CIRCULO, height: CIRCULO, borderRadius: CIRCULO / 2,
+    overflow: 'hidden', backgroundColor: '#000',
+    borderWidth: 3, borderColor: TEAL,
+  },
+  wordmark: { width: 180, height: 44, marginTop: 28, marginBottom: 8, opacity: 0.95 },
+  shutter:    { backgroundColor: TEAL, paddingVertical: 18, paddingHorizontal: 40, borderRadius: 16, marginTop: 16 },
   shutterTxt: { color: PAPEL, fontSize: 20, fontWeight: '700' },
 
   bigCheck: { fontSize: 96, color: PAPEL, fontWeight: '900' },
