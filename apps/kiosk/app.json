@@ -22,6 +22,14 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "A CoreVero usa a câmara para confirmar a picagem com foto."
+        }
+      ]
+    ]
   }
 }
