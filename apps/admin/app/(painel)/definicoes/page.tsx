@@ -277,11 +277,12 @@ export default function Definicoes() {
             </h3>
             {alvo.acao === "terminar" ? (
               <p className="text-sm text-cinza mb-4">
-                Para <strong className="text-tinta">dispositivo perdido ou roubado</strong>.
-                Além de o revogar, <strong className="text-tinta">termina a sessão</strong> do
-                dispositivo: perde a autenticação e <strong className="text-tinta">não volta
-                sozinho</strong> — terá de ser configurado de novo (novo login). Picagens ainda
-                por enviar nesse dispositivo serão perdidas.
+                Força o dispositivo a <strong className="text-tinta">re-autenticar</strong>:
+                termina a sessão atual. Se o dispositivo continuar autorizado, volta a
+                funcionar assim que alguém faça login de novo — <strong className="text-tinta">não
+                altera o acesso</strong> (revogar é uma ação separada). Para um dispositivo
+                perdido ou roubado, use <strong className="text-tinta">Revogar e Terminar sessão</strong>.
+                Picagens ainda por enviar nesse dispositivo serão perdidas.
               </p>
             ) : (
               <p className="text-sm text-cinza mb-4">
