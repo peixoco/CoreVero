@@ -22,7 +22,7 @@ import { supabase } from './lib/supabase';
 import {
   enfileirarOnline, enfileirarOffline, drenar, contarPendentes, contarRecusados,
 } from './lib/outbox';
-import { validarPinOffline, temCache, refrescarCache } from './lib/cache-pin';
+import { validarPinOffline, temCache, refrescarCache, cacheExpirada } from './lib/cache-pin';
 
 // --- Marca CoreVero -----------------------------------------------------------
 const TINTA = '#10202E';
@@ -191,6 +191,9 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
     // OFFLINE — validar contra a cache local.
     const t = await validarPinOffline(codigo.trim(), pin.trim());
     if (!t) {
+      if (await cacheExpirada()) {
+        return falhar('Sem ligação e os dados locais expiraram. Ligue à rede para atualizar.');
+      }
       const cache = await temCache();
       return falhar(cache
         ? 'Sem ligação. Código ou PIN inválido.'

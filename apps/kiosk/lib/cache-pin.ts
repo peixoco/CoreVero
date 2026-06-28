@@ -33,7 +33,12 @@ import { utf8ToBytes, bytesToHex } from '@noble/hashes/utils';
 import { supabase } from './supabase';
 
 const KEY_NAME = 'corevero_device_hmac_key';
-const REFRESH_MIN_MS = 5 * 60 * 1000; // não refrescar a cache mais que 1x/5min
+const REFRESH_MIN_MS = 5 * 60 * 1000;       // não refrescar a cache mais que 1x/5min
+// Validade local da cache. Sem refresh dentro deste prazo, a validação offline
+// PÁRA — protege um tablet roubado mantido offline e evita validar contra dados
+// muito antigos. Generoso para o piloto (cobre um fim de semana); baixar = mais
+// seguro, menos tolerante a cortes longos.
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 let jaRegistou = false;       // chave registada no servidor nesta sessão
@@ -51,11 +56,36 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
           trabalhador_id text not null,
           pin_hmac       text not null
         );
+        create table if not exists cache_meta (
+          chave text primary key not null,
+          valor text not null
+        );
       `);
       return db;
     })();
   }
   return dbPromise;
+}
+
+async function marcarRefresh(): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    `insert or replace into cache_meta (chave, valor) values ('ultimo_refresh', ?)`,
+    String(Date.now()),
+  );
+}
+
+// Cache expirada = sem refresh dentro do TTL (ou nunca refrescada).
+// Sobrevive a reinícios da app porque o timestamp está em SQLite.
+export async function cacheExpirada(): Promise<boolean> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ valor: string }>(
+    `select valor from cache_meta where chave = 'ultimo_refresh'`,
+  );
+  if (!row) return true;
+  const ts = Number(row.valor);
+  if (!Number.isFinite(ts)) return true;
+  return Date.now() - ts > CACHE_TTL_MS;
 }
 
 // --- Chave do dispositivo (Keychain) -----------------------------------------
@@ -115,6 +145,7 @@ export async function refrescarCache(forcar = false): Promise<void> {
     }
   });
   ultimoRefresh = Date.now();
+  await marcarRefresh(); // persiste para o TTL sobreviver a reinícios
 }
 
 // --- Validação offline -------------------------------------------------------
@@ -124,6 +155,9 @@ export type TrabalhadorOffline = { trabalhador_id: string; nome: string };
 export async function validarPinOffline(
   codigo: string, pin: string,
 ): Promise<TrabalhadorOffline | null> {
+  // Cache expirada (sem refresh dentro do TTL) -> não valida offline.
+  if (await cacheExpirada()) return null;
+
   const chave = await SecureStore.getItemAsync(KEY_NAME);
   if (!chave) return null; // sem chave não há como validar offline
 

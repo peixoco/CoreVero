@@ -26,7 +26,7 @@ export default function Definicoes() {
   const [kiosks, setKiosks] = useState<Kiosk[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
-  const [alvo, setAlvo] = useState<{ kiosk: Kiosk; loja: Loja } | null>(null);
+  const [alvo, setAlvo] = useState<{ kiosk: Kiosk; loja: Loja; acao: "revogar" | "terminar" } | null>(null);
   const [confirmTexto, setConfirmTexto] = useState("");
   const [aProcessar, setAProcessar] = useState(false);
 
@@ -52,12 +52,11 @@ export default function Definicoes() {
     carregar();
   }, [carregar]);
 
-  async function revogar() {
+  async function confirmarAcao() {
     if (!alvo) return;
     setAProcessar(true);
-    const { error } = await supabase.rpc("revogar_kiosk", {
-      p_kiosk_id: alvo.kiosk.id,
-    });
+    const rpc = alvo.acao === "terminar" ? "terminar_sessao_kiosk" : "revogar_kiosk";
+    const { error } = await supabase.rpc(rpc, { p_kiosk_id: alvo.kiosk.id });
     setAProcessar(false);
     if (error) return setErro(error.message);
     setAlvo(null);
@@ -217,26 +216,38 @@ export default function Definicoes() {
                                   )
                                 : "—"}
                             </td>
-                            <td className="px-4 py-3 text-right">
-                              {k.ativo ? (
+                            <td className="px-4 py-3">
+                              <div className="flex justify-end gap-2">
+                                {k.ativo ? (
+                                  <button
+                                    onClick={() => {
+                                      setAlvo({ kiosk: k, loja, acao: "revogar" });
+                                      setConfirmTexto("");
+                                    }}
+                                    className="rounded-lg border border-red-300 text-red-700 px-3 py-1.5 text-sm font-medium hover:bg-red-50 transition"
+                                  >
+                                    Revogar
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => reativar(k)}
+                                    disabled={aProcessar}
+                                    className="rounded-lg border border-teal text-teal px-3 py-1.5 text-sm font-medium hover:bg-teal/5 transition disabled:opacity-50"
+                                  >
+                                    Reativar
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => {
-                                    setAlvo({ kiosk: k, loja });
+                                    setAlvo({ kiosk: k, loja, acao: "terminar" });
                                     setConfirmTexto("");
                                   }}
-                                  className="rounded-lg border border-red-300 text-red-700 px-3 py-1.5 text-sm font-medium hover:bg-red-50 transition"
+                                  className="rounded-lg border border-red-700 text-red-800 px-3 py-1.5 text-sm font-medium hover:bg-red-100 transition"
+                                  title="Dispositivo perdido: mata a sessão; precisa de re-login para voltar"
                                 >
-                                  Revogar
+                                  Terminar sessão
                                 </button>
-                              ) : (
-                                <button
-                                  onClick={() => reativar(k)}
-                                  disabled={aProcessar}
-                                  className="rounded-lg border border-teal text-teal px-3 py-1.5 text-sm font-medium hover:bg-teal/5 transition disabled:opacity-50"
-                                >
-                                  Reativar
-                                </button>
-                              )}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -261,14 +272,26 @@ export default function Definicoes() {
       {alvo && (
         <div className="fixed inset-0 bg-tinta/50 grid place-items-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-tinta mb-2">Revogar kiosk</h3>
-            <p className="text-sm text-cinza mb-4">
-              Isto corta de imediato a capacidade deste dispositivo de picar e de
-              sincronizar picagens ainda por enviar. Picagens guardadas no
-              dispositivo e ainda não enviadas{" "}
-              <strong className="text-tinta">serão perdidas</strong>. A ação é
-              reversível (Reativar), mas o que se perder no intervalo não volta.
-            </p>
+            <h3 className="text-lg font-bold text-tinta mb-2">
+              {alvo.acao === "terminar" ? "Terminar sessão do dispositivo" : "Revogar kiosk"}
+            </h3>
+            {alvo.acao === "terminar" ? (
+              <p className="text-sm text-cinza mb-4">
+                Para <strong className="text-tinta">dispositivo perdido ou roubado</strong>.
+                Além de o revogar, <strong className="text-tinta">termina a sessão</strong> do
+                dispositivo: perde a autenticação e <strong className="text-tinta">não volta
+                sozinho</strong> — terá de ser configurado de novo (novo login). Picagens ainda
+                por enviar nesse dispositivo serão perdidas.
+              </p>
+            ) : (
+              <p className="text-sm text-cinza mb-4">
+                Isto corta de imediato a capacidade deste dispositivo de picar e de
+                sincronizar picagens ainda por enviar. Picagens guardadas no
+                dispositivo e ainda não enviadas{" "}
+                <strong className="text-tinta">serão perdidas</strong>. A ação é
+                reversível (Reativar), mas o que se perder no intervalo não volta.
+              </p>
+            )}
             <p className="text-sm text-tinta mb-2">
               Para confirmar, escreve o nome da loja:{" "}
               <strong>{alvo.loja.nome}</strong>
@@ -291,11 +314,13 @@ export default function Definicoes() {
                 Cancelar
               </button>
               <button
-                onClick={revogar}
+                onClick={confirmarAcao}
                 disabled={confirmTexto.trim() !== alvo.loja.nome || aProcessar}
                 className="rounded-lg bg-red-600 text-white px-4 py-2 text-sm font-medium hover:brightness-110 transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {aProcessar ? "A revogar…" : "Revogar kiosk"}
+                {aProcessar
+                  ? "A processar…"
+                  : alvo.acao === "terminar" ? "Terminar sessão" : "Revogar kiosk"}
               </button>
             </div>
           </div>
