@@ -242,7 +242,8 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
     try {
       if (offline) {
         await enfileirarOffline({
-          id: chave, trabalhador_id: trabalhadorId!, tipo, momento, foto_b64: base64,
+          id: chave, trabalhador_id: trabalhadorId!, codigo_pessoal: codigo.trim(),
+          tipo, momento, foto_b64: base64,
         });
       } else {
         await enfileirarOnline({

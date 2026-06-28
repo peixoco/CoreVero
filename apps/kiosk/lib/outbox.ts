@@ -32,6 +32,7 @@ type Linha = {
   origem: Origem;
   autorizacao_id: string;   // '' se offline
   trabalhador_id: string;   // '' se online
+  codigo_pessoal: string;   // para reportar recusas; '' se online
   tipo: string;
   momento: string;
   foto_b64: string;
@@ -40,6 +41,7 @@ type Linha = {
   foto_path: string | null;
   tentativas: number;
   erro: string | null;
+  reportada: number;        // 1 quando a recusa já foi reportada ao servidor
   criado_em: string;
 };
 
@@ -77,6 +79,13 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
       if (!(await temColuna(db, 'trabalhador_id'))) {
         await db.execAsync(`alter table outbox_item add column trabalhador_id text not null default ''`);
       }
+      // 3b#1: codigo do trabalhador (para reportar recusas) + flag de report feito.
+      if (!(await temColuna(db, 'codigo_pessoal'))) {
+        await db.execAsync(`alter table outbox_item add column codigo_pessoal text not null default ''`);
+      }
+      if (!(await temColuna(db, 'reportada'))) {
+        await db.execAsync(`alter table outbox_item add column reportada integer not null default 0`);
+      }
       return db;
     })();
   }
@@ -106,6 +115,7 @@ export async function enfileirarOnline(item: {
 export async function enfileirarOffline(item: {
   id: string;
   trabalhador_id: string;
+  codigo_pessoal: string;
   tipo: string;
   momento: string;
   foto_b64: string;
@@ -113,10 +123,10 @@ export async function enfileirarOffline(item: {
   const db = await getDb();
   await db.runAsync(
     `insert or ignore into outbox_item
-       (id, origem, autorizacao_id, trabalhador_id, tipo, momento, foto_b64,
-        estado, tentativas, criado_em)
-     values (?, 'offline', '', ?, ?, ?, ?, 'pendente', 0, ?)`,
-    item.id, item.trabalhador_id, item.tipo, item.momento, item.foto_b64,
+       (id, origem, autorizacao_id, trabalhador_id, codigo_pessoal, tipo, momento, foto_b64,
+        estado, tentativas, reportada, criado_em)
+     values (?, 'offline', '', ?, ?, ?, ?, ?, 'pendente', 0, 0, ?)`,
+    item.id, item.trabalhador_id, item.codigo_pessoal, item.tipo, item.momento, item.foto_b64,
     new Date().toISOString(),
   );
 }
@@ -248,7 +258,32 @@ export async function drenar(): Promise<void> {
         );
       }
     }
+
+    // PASSO 3 — reportar recusas offline ao servidor (para o admin as ver).
+    // Tentado até passar (reportada=0); não engole se a rede falhar agora.
+    await reportarRecusas(db);
   } finally {
     aDrenar = false;
+  }
+}
+
+async function reportarRecusas(db: SQLite.SQLiteDatabase): Promise<void> {
+  const recusas = await db.getAllAsync<Linha>(
+    `select * from outbox_item
+      where estado='recusado' and origem='offline' and reportada=0`,
+  );
+  for (const r of recusas) {
+    const { error } = await supabase.rpc('reportar_picagem_recusada', {
+      p_trabalhador_id: r.trabalhador_id || null,
+      p_codigo_pessoal: r.codigo_pessoal || null,
+      p_tipo: r.tipo,
+      p_momento_dispositivo: r.momento,
+      p_chave_idempotencia: r.id,
+      p_motivo: r.erro ?? 'recusada no drain',
+    });
+    if (!error) {
+      await db.runAsync(`update outbox_item set reportada=1 where id=?`, r.id);
+    }
+    // se falhar (rede), fica reportada=0 e tenta no próximo drain
   }
 }

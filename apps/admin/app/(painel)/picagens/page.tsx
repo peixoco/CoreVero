@@ -12,6 +12,15 @@ type Picagem = {
   foto_url: string;
 };
 
+type Recusa = {
+  id: string;
+  tipo: string;
+  momento_dispositivo: string;
+  codigo_pessoal: string | null;
+  motivo: string;
+  criada_em: string;
+};
+
 const TIPO_LABEL: Record<string, string> = {
   entrada: "Entrada",
   saida: "Saída",
@@ -29,6 +38,7 @@ function fmt(ts: string) {
 
 export default function Picagens() {
   const [linhas, setLinhas] = useState<Picagem[] | null>(null);
+  const [recusas, setRecusas] = useState<Recusa[]>([]);
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,6 +52,15 @@ export default function Picagens() {
       .then(({ data, error }) => {
         if (error) setErro(error.message);
         else setLinhas(data as Picagem[]);
+      });
+
+    supabase
+      .from("picagem_recusada")
+      .select("id, tipo, momento_dispositivo, codigo_pessoal, motivo, criada_em")
+      .order("criada_em", { ascending: false })
+      .limit(50)
+      .then(({ data }) => {
+        if (data) setRecusas(data as Recusa[]);
       });
   }, []);
 
@@ -60,6 +79,46 @@ export default function Picagens() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Picagens</h1>
       {erro && <p className="text-red-600 mb-4">{erro}</p>}
+
+      {/* Painel de recusas — só aparece quando há. Tentativas offline rejeitadas
+          no servidor (cache obsoleta): não são picagens válidas, pedem atenção. */}
+      {recusas.length > 0 && (
+        <div className="mb-6 rounded-xl border border-red-300 bg-red-50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-red-200">
+            <h2 className="font-semibold text-red-800">
+              Picagens recusadas ({recusas.length})
+            </h2>
+            <p className="text-sm text-red-700">
+              Tentativas offline rejeitadas pelo servidor (ex.: colaborador
+              desativado entretanto). Não foram registadas como picagens —
+              confirme com o colaborador.
+            </p>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-red-700 border-b border-red-200">
+                <th className="px-4 py-2 font-medium">Hora do toque</th>
+                <th className="px-4 py-2 font-medium">Código</th>
+                <th className="px-4 py-2 font-medium">Tipo</th>
+                <th className="px-4 py-2 font-medium">Motivo</th>
+                <th className="px-4 py-2 font-medium">Reportada</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recusas.map((r) => (
+                <tr key={r.id} className="border-b border-red-200 last:border-0">
+                  <td className="px-4 py-2 text-tinta">{fmt(r.momento_dispositivo)}</td>
+                  <td className="px-4 py-2 text-tinta">{r.codigo_pessoal ?? "—"}</td>
+                  <td className="px-4 py-2">{TIPO_LABEL[r.tipo] ?? r.tipo}</td>
+                  <td className="px-4 py-2 text-red-700">{r.motivo}</td>
+                  <td className="px-4 py-2 text-cinza">{fmt(r.criada_em)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {!linhas ? (
         <p className="text-cinza">A carregar…</p>
       ) : (
