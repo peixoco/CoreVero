@@ -29,7 +29,8 @@
         {
           "cameraPermission": "A CoreVero usa a câmara para confirmar a picagem com foto."
         }
-      ]
+      ],
+      "expo-sqlite"
     ]
   }
 }

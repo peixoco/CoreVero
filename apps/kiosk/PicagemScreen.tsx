@@ -1,24 +1,26 @@
-// components/PicagemScreen.tsx
-// Fase 2 do kiosk — fluxo: código -> PIN -> tipo -> foto -> picagem registada.
+// PicagemScreen.tsx
+// Kiosk — fluxo: código -> PIN -> tipo -> foto -> picagem enfileirada.
 //
-// Garantias do desenho (Opção X):
-//  - A câmara só abre DEPOIS de código+PIN validados no servidor (iniciar_picagem).
-//  - O verificacao_id é gerado no servidor (registar_picagem); o cliente não o inventa.
-//  - A foto sobe para o caminho determinístico devolvido pela RPC; a policy de
-//    storage só aceita esse upload porque a verificacao já existe => sem órfãos.
+// Sprint 3a (Opção 1): a captura escreve numa FILA local (outbox) e mostra ✓
+// assim que o item está duravelmente guardado — não espera pelo servidor. A
+// fila drena (registar + upload) quando há rede. Um blip a meio da transação
+// deixa de perder a picagem.
 //
-// Dependências: expo-camera, base64-arraybuffer
-//   npx expo install expo-camera
+// O bilhete (autorizacao_id) é emitido ONLINE pela iniciar_picagem antes de a
+// câmara abrir; só o registo+upload é que vai para a fila. Sem PIN na fila.
+//
+// Dependências: expo-camera, expo-crypto, base64-arraybuffer, expo-sqlite
+//   npx expo install expo-camera expo-sqlite
 //   npm i base64-arraybuffer
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Dimensions, Image, Pressable, StyleSheet, Text, View,
+  ActivityIndicator, AppState, Dimensions, Image, Pressable, StyleSheet, Text, View,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Crypto from 'expo-crypto';
-import { decode } from 'base64-arraybuffer';
 import { supabase } from './lib/supabase';
+import { enfileirar, drenar, contarPendentes } from './lib/outbox';
 
 // --- Marca CoreVero -----------------------------------------------------------
 const TINTA = '#10202E';
@@ -79,10 +81,26 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
   const [tipo, setTipo] = useState<Tipo | null>(null);
   const [erro, setErro] = useState('');
   const [sucessoTxt, setSucessoTxt] = useState('');
+  const [pendentes, setPendentes] = useState(0);
 
   const [perm, requestPerm] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const emCurso = useRef(false); // trava de duplo-toque
+
+  // drenar a fila: ao montar, ao voltar a primeiro plano, e a cada 15s.
+  // O próprio drain é o teste de rede — se não há, o item fica e tenta depois.
+  async function sincronizar() {
+    await drenar();
+    setPendentes(await contarPendentes());
+  }
+  useEffect(() => {
+    sincronizar();
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') sincronizar();
+    });
+    const iv = setInterval(sincronizar, 15000);
+    return () => { sub.remove(); clearInterval(iv); };
+  }, []);
 
   // auto-reset após sucesso/erro
   useEffect(() => {
@@ -155,16 +173,15 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
     setFase('camera');
   }
 
-  // PASSO 4: capturar foto -> registar -> upload
+  // PASSO 4: capturar foto -> enfileirar (a fila trata de registar + upload)
   async function capturarERegistar() {
-    if (emCurso.current || !cameraRef.current || !tipo) return;
+    if (emCurso.current || !cameraRef.current || !tipo || !autorizacaoId) return;
     emCurso.current = true;
     setFase('processar');
 
     // hora autoritária = momento do toque
     const momento = new Date().toISOString();
-    // chave de idempotência: identifica este toque em todas as tentativas
-    // (na outbox, esta chave nasce com o item da fila e é reutilizada nos retries)
+    // chave de idempotência: id do item da fila, reutilizada em todos os retries
     const chave = Crypto.randomUUID();
 
     let base64: string | undefined;
@@ -176,36 +193,26 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
     }
     if (!base64) return falhar('Falha ao capturar a foto.');
 
-    // 1) registar (consome o bilhete; devolve o caminho da foto)
-    const { data, error } = await supabase.rpc('registar_picagem', {
-      p_autorizacao_id: autorizacaoId,
-      p_tipo: tipo,
-      p_momento_dispositivo: momento,
-      p_chave_idempotencia: chave,
-    });
-    if (error || !data?.foto_path) {
-      return falhar(error?.message ?? 'Não foi possível registar a picagem.');
+    // Escreve na fila local. A partir daqui a picagem está DURÁVEL — sobrevive a
+    // fechar a app e a falta de rede. O ✓ é honesto: o registo legal está salvo.
+    try {
+      await enfileirar({
+        id: chave,
+        autorizacao_id: autorizacaoId,
+        tipo,
+        momento,
+        foto_b64: base64,
+      });
+    } catch {
+      return falhar('Falha ao guardar a picagem no dispositivo.');
     }
-    const fotoPath: string = data.foto_path;
-
-    // 2) upload da foto para o caminho determinístico
-    //    (a policy só aceita porque a verificacao já existe)
-    const { error: upErr } = await supabase.storage
-      .from('picagens')
-      .upload(fotoPath, decode(base64), { contentType: 'image/jpeg', upsert: false });
 
     emCurso.current = false;
-
-    if (upErr) {
-      // A picagem (registo legal de tempos) JÁ ficou registada. Só a foto falhou.
-      // Na Fase 3 (outbox) isto entra em fila e repete. Aqui informamos sem bloquear.
-      setSucessoTxt(`${LABEL[tipo]} registada — foto a sincronizar`);
-      setFase('sucesso');
-      return;
-    }
-
     setSucessoTxt(`${LABEL[tipo]} registada às ${horaLisboa(momento)}`);
     setFase('sucesso');
+
+    // drena em segundo plano — não bloqueia o ✓
+    sincronizar();
   }
 
   // --- RENDER -----------------------------------------------------------------
@@ -213,6 +220,14 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
     <View style={s.root}>
       {lojaNome && fase !== 'camera' && fase !== 'sucesso' ? (
         <Text style={s.lojaLabel}>{lojaNome}</Text>
+      ) : null}
+
+      {pendentes > 0 && fase !== 'camera' && fase !== 'sucesso' ? (
+        <View style={s.pendentes}>
+          <Text style={s.pendentesTxt}>
+            {pendentes} {pendentes === 1 ? 'picagem por enviar' : 'picagens por enviar'}
+          </Text>
+        </View>
       ) : null}
 
       {fase === 'codigo' && (
@@ -375,6 +390,8 @@ function Keypad(props: {
 const s = StyleSheet.create({
   root:   { flex: 1, backgroundColor: PAPEL },
   lojaLabel: { position: 'absolute', top: 52, alignSelf: 'center', fontSize: 13, color: CINZA, fontWeight: '600', zIndex: 10 },
+  pendentes: { position: 'absolute', top: 78, alignSelf: 'center', backgroundColor: '#E9A23B22', borderColor: '#E9A23B', borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4, zIndex: 10 },
+  pendentesTxt: { fontSize: 12, color: '#9A6A1E', fontWeight: '700' },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
 
   titulo: { fontSize: 22, color: TINTA, marginBottom: 12, fontWeight: '600' },
