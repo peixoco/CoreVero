@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import Validacoes from "./validacoes";
 
 type Tab = "picagens" | "checklists" | "validacoes";
 
@@ -260,12 +261,7 @@ export default function Registos() {
         />
       )}
 
-      {tab === "validacoes" && (
-        <Placeholder
-          titulo="Validações"
-          desc="Exportar/importar as horas em xlsx por dia, semana ou mês, para verificar e corrigir. Depende do cálculo de horas (Frente A)."
-        />
-      )}
+      {tab === "validacoes" && <Validacoes />}
     </div>
   );
 }
