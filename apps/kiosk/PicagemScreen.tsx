@@ -16,6 +16,7 @@ import {
   ActivityIndicator, Dimensions, Image, Pressable, StyleSheet, Text, View,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Crypto from 'expo-crypto';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from './lib/supabase';
 
@@ -159,6 +160,9 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
 
     // hora autoritária = momento do toque
     const momento = new Date().toISOString();
+    // chave de idempotência: identifica este toque em todas as tentativas
+    // (na outbox, esta chave nasce com o item da fila e é reutilizada nos retries)
+    const chave = Crypto.randomUUID();
 
     let base64: string | undefined;
     try {
@@ -175,6 +179,7 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
       p_pin: pin.trim(),
       p_tipo: tipo,
       p_momento_dispositivo: momento,
+      p_chave_idempotencia: chave,
     });
     if (error || !data?.foto_path) {
       return falhar(error?.message ?? 'Não foi possível registar a picagem.');
