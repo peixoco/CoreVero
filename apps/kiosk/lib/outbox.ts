@@ -201,9 +201,11 @@ export async function drenar(): Promise<void> {
 
           if (error) {
             if (eRecusaTerminal(error)) {
-              // não voltar a tentar; manter visível para o gestor
+              // não voltar a tentar; manter visível para o gestor.
+              // Apaga a foto (rosto): o report da recusa não precisa dela e não
+              // se deve reter um rosto em repouso indefinidamente (minimização).
               await db.runAsync(
-                `update outbox_item set estado='recusado', erro=? where id=?`,
+                `update outbox_item set estado='recusado', erro=?, foto_b64='' where id=?`,
                 error.message, it.id,
               );
             } else {
