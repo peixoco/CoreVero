@@ -1,17 +1,16 @@
 // PicagemScreen.tsx
 // Kiosk — fluxo: código -> PIN -> tipo -> foto -> picagem enfileirada.
 //
-// Sprint 3a (Opção 1): a captura escreve numa FILA local (outbox) e mostra ✓
-// assim que o item está duravelmente guardado — não espera pelo servidor. A
-// fila drena (registar + upload) quando há rede. Um blip a meio da transação
-// deixa de perder a picagem.
+// Sprint 3a: a captura escreve numa FILA local (outbox) e mostra ✓ assim que o
+// item está duravelmente guardado — não espera pelo servidor.
 //
-// O bilhete (autorizacao_id) é emitido ONLINE pela iniciar_picagem antes de a
-// câmara abrir; só o registo+upload é que vai para a fila. Sem PIN na fila.
+// Sprint 3b: se a rede estiver em baixo no momento do PIN, valida o PIN
+// LOCALMENTE (HMAC contra a cache) e deixa picar offline. A picagem entra na
+// fila como "autorizada offline"; o servidor re-valida no drain. A UI é honesta:
+// uma picagem offline aparece como "por confirmar", nunca como confirmada.
 //
-// Dependências: expo-camera, expo-crypto, base64-arraybuffer, expo-sqlite
-//   npx expo install expo-camera expo-sqlite
-//   npm i base64-arraybuffer
+// Dependências: expo-camera, expo-crypto, base64-arraybuffer, expo-sqlite,
+//   expo-secure-store (3b, nativo), @noble/hashes (3b, JS).
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -20,7 +19,10 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Crypto from 'expo-crypto';
 import { supabase } from './lib/supabase';
-import { enfileirar, drenar, contarPendentes } from './lib/outbox';
+import {
+  enfileirarOnline, enfileirarOffline, drenar, contarPendentes, contarRecusados,
+} from './lib/outbox';
+import { validarPinOffline, temCache, refrescarCache } from './lib/cache-pin';
 
 // --- Marca CoreVero -----------------------------------------------------------
 const TINTA = '#10202E';
@@ -28,10 +30,8 @@ const TEAL  = '#16A37D';
 const PAPEL = '#F7F6F2';
 const CINZA = '#6B7C8C';
 
-// Diâmetro da janela circular da câmara (limitado para não colar às margens).
 const CIRCULO = Math.min(Dimensions.get('window').width - 64, 320);
 
-// --- Tipos de picagem ---------------------------------------------------------
 type Tipo = 'entrada' | 'saida' | 'inicio_intervalo' | 'fim_intervalo';
 
 const LABEL: Record<Tipo, string> = {
@@ -41,22 +41,19 @@ const LABEL: Record<Tipo, string> = {
   fim_intervalo:    'Fim de pausa',
 };
 
-// Sugestão do próximo tipo a partir da última picagem de hoje.
-// É uma DICA (a validação dura fica para mais tarde); o colaborador pode escolher
-// qualquer opção apresentada.
+const TODOS_TIPOS: Tipo[] = ['entrada', 'inicio_intervalo', 'fim_intervalo', 'saida'];
+
+// Sugestão do próximo tipo a partir da última picagem (só online, onde a sabemos).
 function opcoesPara(ultima: Tipo | null): { sugerida: Tipo; opcoes: Tipo[] } {
   switch (ultima) {
     case 'entrada':
     case 'fim_intervalo':
-      // em turno -> pode ir para pausa ou sair
       return { sugerida: 'saida', opcoes: ['inicio_intervalo', 'saida'] };
     case 'inicio_intervalo':
-      // em pausa -> só volta da pausa
       return { sugerida: 'fim_intervalo', opcoes: ['fim_intervalo'] };
     case 'saida':
     case null:
     default:
-      // fora de turno -> entra
       return { sugerida: 'entrada', opcoes: ['entrada'] };
   }
 }
@@ -68,6 +65,13 @@ function horaLisboa(iso?: string | null): string {
   });
 }
 
+// Erro de transporte (sem rede) vs erro do servidor (respondeu com um código).
+function eErroDeRede(error: any): boolean {
+  if (!error) return false;
+  if (error.code) return false; // servidor respondeu -> não é rede
+  return /network|fetch|timeout|failed/i.test(String(error.message ?? '')) || !error.code;
+}
+
 type Fase = 'codigo' | 'pin' | 'tipo' | 'camera' | 'processar' | 'sucesso' | 'erro';
 
 export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
@@ -75,23 +79,27 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
   const [codigo, setCodigo] = useState('');
   const [pin, setPin] = useState('');
   const [nome, setNome] = useState('');
+  const [offline, setOffline] = useState(false);
   const [autorizacaoId, setAutorizacaoId] = useState<string | null>(null);
+  const [trabalhadorId, setTrabalhadorId] = useState<string | null>(null);
   const [ultimaTipo, setUltimaTipo] = useState<Tipo | null>(null);
   const [ultimaMomento, setUltimaMomento] = useState<string | null>(null);
   const [tipo, setTipo] = useState<Tipo | null>(null);
   const [erro, setErro] = useState('');
   const [sucessoTxt, setSucessoTxt] = useState('');
   const [pendentes, setPendentes] = useState(0);
+  const [recusados, setRecusados] = useState(0);
 
   const [perm, requestPerm] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
-  const emCurso = useRef(false); // trava de duplo-toque
+  const emCurso = useRef(false);
 
-  // drenar a fila: ao montar, ao voltar a primeiro plano, e a cada 15s.
-  // O próprio drain é o teste de rede — se não há, o item fica e tenta depois.
+  // Sincronizar: refresca a cache (se houver rede), drena a fila, atualiza contadores.
   async function sincronizar() {
+    try { await refrescarCache(); } catch { /* offline ou erro: silêncio */ }
     await drenar();
     setPendentes(await contarPendentes());
+    setRecusados(await contarRecusados());
   }
   useEffect(() => {
     sincronizar();
@@ -102,7 +110,6 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
     return () => { sub.remove(); clearInterval(iv); };
   }, []);
 
-  // auto-reset após sucesso/erro
   useEffect(() => {
     if (fase === 'sucesso' || fase === 'erro') {
       const t = setTimeout(reset, fase === 'sucesso' ? 3500 : 4000);
@@ -112,7 +119,8 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
 
   function reset() {
     setCodigo(''); setPin(''); setNome('');
-    setAutorizacaoId(null);
+    setOffline(false);
+    setAutorizacaoId(null); setTrabalhadorId(null);
     setUltimaTipo(null); setUltimaMomento(null);
     setTipo(null); setErro(''); setSucessoTxt('');
     emCurso.current = false;
@@ -125,7 +133,6 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
     setFase('erro');
   }
 
-  // teclado numérico partilhado pelas fases código/PIN
   function premirTecla(d: string) {
     if (fase === 'codigo') setCodigo((s) => (s.length < 8 ? s + d : s));
     else if (fase === 'pin') setPin((s) => (s.length < 8 ? s + d : s));
@@ -135,39 +142,75 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
     else if (fase === 'pin') setPin((s) => s.slice(0, -1));
   }
 
-  // PASSO 1 -> 2: código introduzido
   function avancarParaPin() {
     if (codigo.trim().length === 0) return;
     setFase('pin');
   }
 
-  // PASSO 2: validar PIN no servidor (a câmara NÃO abre se isto falhar)
+  // PASSO 2: validar PIN. Online via servidor; se a rede falhar, valida offline.
   async function validarPin() {
     if (emCurso.current) return;
     if (pin.trim().length === 0) return;
     emCurso.current = true;
     setFase('processar');
-    const { data, error } = await supabase.rpc('iniciar_picagem', {
-      p_codigo_pessoal: codigo.trim(),
-      p_pin: pin.trim(),
-    });
+
+    let data: any = null;
+    let error: any = null;
+    try {
+      ({ data, error } = await supabase.rpc('iniciar_picagem', {
+        p_codigo_pessoal: codigo.trim(),
+        p_pin: pin.trim(),
+      }));
+    } catch (e) {
+      error = e; // exceção de transporte (sem rede)
+    }
     emCurso.current = false;
-    if (error || !data) {
+
+    // ONLINE — servidor validou e emitiu bilhete.
+    if (!error && data) {
+      setOffline(false);
+      setNome(data.nome ?? '');
+      setTrabalhadorId(data.trabalhador_id ?? null);
+      setAutorizacaoId(data.autorizacao_id ?? null);
+      setUltimaTipo((data.ultima_tipo as Tipo) ?? null);
+      setUltimaMomento(data.ultima_momento ?? null);
+      setTipo(opcoesPara((data.ultima_tipo as Tipo) ?? null).sugerida);
+      setFase('tipo');
+      return;
+    }
+
+    // Servidor RESPONDEU com erro (não é rede) -> PIN inválido ou revogado.
+    if (!eErroDeRede(error)) {
       const msg = error?.message ?? '';
       if (/revogad/i.test(msg)) {
         return falhar('Este dispositivo foi revogado. Contacte o gestor.');
       }
       return falhar('Código ou PIN inválido.');
     }
-    setNome(data.nome ?? '');
-    setAutorizacaoId(data.autorizacao_id ?? null);
-    setUltimaTipo((data.ultima_tipo as Tipo) ?? null);
-    setUltimaMomento(data.ultima_momento ?? null);
-    setTipo(opcoesPara((data.ultima_tipo as Tipo) ?? null).sugerida);
+
+    // OFFLINE — validar contra a cache local.
+    const t = await validarPinOffline(codigo.trim(), pin.trim());
+    if (!t) {
+      const cache = await temCache();
+      return falhar(cache
+        ? 'Sem ligação. Código ou PIN inválido.'
+        : 'Sem ligação e sem dados para validar offline. Tente quando houver rede.');
+    }
+    setOffline(true);
+    setNome(t.nome);
+    setTrabalhadorId(t.trabalhador_id);
+    setAutorizacaoId(null);
+    setUltimaTipo(null);   // offline: a última picagem é desconhecida
+    setUltimaMomento(null);
+    setTipo('entrada');
     setFase('tipo');
   }
 
-  // PASSO 3 -> 4: tipo escolhido, abrir câmara (pedir permissão se preciso)
+  // Opções de tipo: offline mostramos todas (não sabemos a última).
+  function opcoesEcra(): Tipo[] {
+    return offline ? TODOS_TIPOS : opcoesPara(ultimaTipo).opcoes;
+  }
+
   async function escolherTipo(t: Tipo) {
     setTipo(t);
     if (!perm?.granted) {
@@ -177,16 +220,15 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
     setFase('camera');
   }
 
-  // PASSO 4: capturar foto -> enfileirar (a fila trata de registar + upload)
+  // PASSO 4: capturar foto -> enfileirar (online com bilhete, offline com trabalhador).
   async function capturarERegistar() {
-    if (emCurso.current || !cameraRef.current || !tipo || !autorizacaoId) return;
+    if (emCurso.current || !cameraRef.current || !tipo) return;
+    if (offline ? !trabalhadorId : !autorizacaoId) return;
     emCurso.current = true;
     setFase('processar');
 
-    // hora autoritária = momento do toque
-    const momento = new Date().toISOString();
-    // chave de idempotência: id do item da fila, reutilizada em todos os retries
-    const chave = Crypto.randomUUID();
+    const momento = new Date().toISOString();        // hora autoritária = toque
+    const chave = Crypto.randomUUID();               // chave de idempotência
 
     let base64: string | undefined;
     try {
@@ -197,25 +239,25 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
     }
     if (!base64) return falhar('Falha ao capturar a foto.');
 
-    // Escreve na fila local. A partir daqui a picagem está DURÁVEL — sobrevive a
-    // fechar a app e a falta de rede. O ✓ é honesto: o registo legal está salvo.
     try {
-      await enfileirar({
-        id: chave,
-        autorizacao_id: autorizacaoId,
-        tipo,
-        momento,
-        foto_b64: base64,
-      });
+      if (offline) {
+        await enfileirarOffline({
+          id: chave, trabalhador_id: trabalhadorId!, tipo, momento, foto_b64: base64,
+        });
+      } else {
+        await enfileirarOnline({
+          id: chave, autorizacao_id: autorizacaoId!, tipo, momento, foto_b64: base64,
+        });
+      }
     } catch {
       return falhar('Falha ao guardar a picagem no dispositivo.');
     }
 
     emCurso.current = false;
-    setSucessoTxt(`${LABEL[tipo]} registada às ${horaLisboa(momento)}`);
+    setSucessoTxt(offline
+      ? `${LABEL[tipo]} registada offline às ${horaLisboa(momento)} · por confirmar`
+      : `${LABEL[tipo]} registada às ${horaLisboa(momento)}`);
     setFase('sucesso');
-
-    // drena em segundo plano — não bloqueia o ✓
     sincronizar();
   }
 
@@ -226,11 +268,22 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
         <Text style={s.lojaLabel}>{lojaNome}</Text>
       ) : null}
 
-      {pendentes > 0 && fase !== 'camera' && fase !== 'sucesso' ? (
-        <View style={s.pendentes}>
-          <Text style={s.pendentesTxt}>
-            {pendentes} {pendentes === 1 ? 'picagem por enviar' : 'picagens por enviar'}
-          </Text>
+      {(pendentes > 0 || recusados > 0) && fase !== 'camera' && fase !== 'sucesso' ? (
+        <View style={s.avisos}>
+          {pendentes > 0 ? (
+            <View style={s.pendentes}>
+              <Text style={s.pendentesTxt}>
+                {pendentes} {pendentes === 1 ? 'picagem por enviar' : 'picagens por enviar'}
+              </Text>
+            </View>
+          ) : null}
+          {recusados > 0 ? (
+            <View style={s.recusados}>
+              <Text style={s.recusadosTxt}>
+                {recusados} {recusados === 1 ? 'recusada' : 'recusadas'} — contacte o gestor
+              </Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -264,7 +317,9 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
       {fase === 'tipo' && tipo && (
         <View style={s.centro}>
           <Text style={s.ola}>Olá, {nome}</Text>
-          {ultimaTipo ? (
+          {offline ? (
+            <Text style={[s.sub, { color: '#9A6A1E' }]}>Sem ligação — escolha o tipo</Text>
+          ) : ultimaTipo ? (
             <Text style={s.sub}>
               Última: {LABEL[ultimaTipo]} às {horaLisboa(ultimaMomento)}
             </Text>
@@ -272,7 +327,7 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
             <Text style={s.sub}>Sem picagens hoje</Text>
           )}
           <View style={s.tipos}>
-            {opcoesPara(ultimaTipo).opcoes.map((t) => (
+            {opcoesEcra().map((t) => (
               <Pressable
                 key={t}
                 style={[s.tipoBtn, tipo === t && s.tipoBtnSel]}
@@ -291,7 +346,7 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
       {fase === 'camera' && (
         <View style={s.cameraWrap}>
           <Text style={s.cameraTitulo}>
-            {nome}{tipo ? ` · ${LABEL[tipo]}` : ''}
+            {nome}{tipo ? ` · ${LABEL[tipo]}` : ''}{offline ? ' · offline' : ''}
           </Text>
 
           <View style={s.circulo}>
@@ -321,8 +376,8 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
       )}
 
       {fase === 'sucesso' && (
-        <View style={[s.centro, { backgroundColor: TEAL }]}>
-          <Text style={s.bigCheck}>✓</Text>
+        <View style={[s.centro, { backgroundColor: offline ? '#9A6A1E' : TEAL }]}>
+          <Text style={s.bigCheck}>{offline ? '⏳' : '✓'}</Text>
           <Text style={s.sucesso}>{sucessoTxt}</Text>
         </View>
       )}
@@ -394,8 +449,11 @@ function Keypad(props: {
 const s = StyleSheet.create({
   root:   { flex: 1, backgroundColor: PAPEL },
   lojaLabel: { position: 'absolute', top: 52, alignSelf: 'center', fontSize: 13, color: CINZA, fontWeight: '600', zIndex: 10 },
-  pendentes: { position: 'absolute', top: 78, alignSelf: 'center', backgroundColor: '#E9A23B22', borderColor: '#E9A23B', borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4, zIndex: 10 },
+  avisos: { position: 'absolute', top: 78, alignSelf: 'center', gap: 6, alignItems: 'center', zIndex: 10 },
+  pendentes: { backgroundColor: '#E9A23B22', borderColor: '#E9A23B', borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
   pendentesTxt: { fontSize: 12, color: '#9A6A1E', fontWeight: '700' },
+  recusados: { backgroundColor: '#B23A3A18', borderColor: '#B23A3A', borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
+  recusadosTxt: { fontSize: 12, color: '#B23A3A', fontWeight: '700' },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
 
   titulo: { fontSize: 22, color: TINTA, marginBottom: 12, fontWeight: '600' },
