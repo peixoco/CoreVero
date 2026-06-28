@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 
@@ -83,6 +83,7 @@ export default function Validacoes() {
   const [linhas, setLinhas] = useState<LinhaFolha[] | null>(null); // parsed do import
   const [preview, setPreview] = useState<Resultado | null>(null);
   const [feito, setFeito] = useState<Resultado | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     supabase.from("trabalhador").select("id, nome, codigo_pessoal").eq("ativo", true).order("nome")
@@ -183,13 +184,12 @@ export default function Validacoes() {
 
   return (
     <div className="space-y-6">
-      {/* EXPORTAR */}
       <div className="rounded-xl border border-black/10 bg-white p-5 shadow-sm">
         <h2 className="font-semibold text-tinta mb-1">Folha de horas</h2>
         <p className="text-sm text-cinza mb-4">
           Descarrega uma folha do período: uma linha por colaborador por dia. Os dias com
           picagens vêm preenchidos; os em falta vêm em branco. Escreve as horas por cima
-          (corrigir) ou preenche os vazios (adicionar) e reimporta. Célula em branco não mexe em nada.
+          (corrigir) ou preenche os vazios (adicionar) e importa. Célula em branco não mexe em nada.
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <div>
@@ -214,26 +214,22 @@ export default function Validacoes() {
             className="rounded-lg bg-teal text-white px-4 py-1.5 text-sm font-medium hover:opacity-90 transition disabled:opacity-50">
             Descarregar folha
           </button>
+          <button onClick={() => fileRef.current?.click()} disabled={busy}
+            className="rounded-lg border border-teal text-teal px-4 py-1.5 text-sm font-medium hover:bg-teal/5 transition disabled:opacity-50">
+            Importar folha
+          </button>
+          <input
+            ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) lerFicheiro(f); e.target.value = ""; }}
+          />
         </div>
-      </div>
 
-      {/* IMPORTAR */}
-      <div className="rounded-xl border border-black/10 bg-white p-5 shadow-sm">
-        <h2 className="font-semibold text-tinta mb-1">Importar folha</h2>
-        <p className="text-sm text-cinza mb-4">
-          Carrega a folha editada. Mostro primeiro o que vai mudar; só aplico quando confirmares.
-        </p>
-        <input
-          type="file" accept=".xlsx,.xls" disabled={busy}
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) lerFicheiro(f); e.target.value = ""; }}
-          className="text-sm"
-        />
-        {busy && <p className="text-cinza text-sm mt-3">A processar…</p>}
-        {erro && <p className="text-red-600 text-sm mt-3">{erro}</p>}
+        {busy && <p className="text-cinza text-sm mt-4">A processar…</p>}
+        {erro && <p className="text-red-600 text-sm mt-4">{erro}</p>}
 
         {/* PRÉ-VISUALIZAÇÃO */}
         {preview && (
-          <div className="mt-4 rounded-lg border border-black/10 bg-papel/40 p-4">
+          <div className="mt-5 rounded-lg border border-black/10 bg-papel/40 p-4">
             <p className="text-sm font-medium text-tinta mb-2">
               {preview.adicionar + preview.substituir === 0
                 ? "Nada a alterar."
