@@ -153,6 +153,10 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
     });
     emCurso.current = false;
     if (error || !data) {
+      const msg = error?.message ?? '';
+      if (/revogad/i.test(msg)) {
+        return falhar('Este dispositivo foi revogado. Contacte o gestor.');
+      }
       return falhar('Código ou PIN inválido.');
     }
     setNome(data.nome ?? '');
