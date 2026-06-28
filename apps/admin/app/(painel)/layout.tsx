@@ -9,6 +9,7 @@ const NAV = [
   { href: "/", label: "Início" },
   { href: "/colaboradores", label: "Colaboradores" },
   { href: "/picagens", label: "Picagens" },
+  { href: "/definicoes", label: "Definições" },
 ];
 
 export default function PainelLayout({
