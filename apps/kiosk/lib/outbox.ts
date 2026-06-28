@@ -284,7 +284,9 @@ async function reportarRecusas(db: SQLite.SQLiteDatabase): Promise<void> {
       p_motivo: r.erro ?? 'recusada no drain',
     });
     if (!error) {
-      await db.runAsync(`update outbox_item set reportada=1 where id=?`, r.id);
+      // Reportada com sucesso: o servidor (admin) passa a ser o dono da recusa.
+      // Apaga a linha local -> a contagem "N recusadas" no kiosk limpa-se.
+      await db.runAsync(`delete from outbox_item where id=?`, r.id);
     }
     // se falhar (rede), fica reportada=0 e tenta no próximo drain
   }

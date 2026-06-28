@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Tab = "picagens" | "checklists" | "validacoes";
@@ -11,7 +11,7 @@ type Picagem = {
   trabalhador_nome: string;
   codigo_pessoal: string;
   loja_nome: string;
-  foto_url: string;
+  foto_url: string | null;
 };
 
 type Recusa = {
@@ -43,8 +43,9 @@ export default function Registos() {
   const [linhas, setLinhas] = useState<Picagem[] | null>(null);
   const [recusas, setRecusas] = useState<Recusa[]>([]);
   const [erro, setErro] = useState<string | null>(null);
+  const [aProcessar, setAProcessar] = useState<string | null>(null);
 
-  useEffect(() => {
+  const carregarPicagens = useCallback(() => {
     supabase
       .from("vista_picagem")
       .select(
@@ -56,16 +57,24 @@ export default function Registos() {
         if (error) setErro(error.message);
         else setLinhas(data as Picagem[]);
       });
+  }, []);
 
+  const carregarRecusas = useCallback(() => {
     supabase
       .from("picagem_recusada")
       .select("id, tipo, momento_dispositivo, codigo_pessoal, motivo, criada_em")
+      .eq("estado", "pendente")
       .order("criada_em", { ascending: false })
       .limit(50)
       .then(({ data }) => {
         if (data) setRecusas(data as Recusa[]);
       });
   }, []);
+
+  useEffect(() => {
+    carregarPicagens();
+    carregarRecusas();
+  }, [carregarPicagens, carregarRecusas]);
 
   async function verFoto(path: string) {
     const { data, error } = await supabase.storage
@@ -76,6 +85,30 @@ export default function Registos() {
       return;
     }
     window.open(data.signedUrl, "_blank");
+  }
+
+  async function aceitar(r: Recusa) {
+    if (
+      !window.confirm(
+        "Aceitar cria uma picagem real (correção manual, sem foto) com a hora original. Continuar?",
+      )
+    )
+      return;
+    setAProcessar(r.id);
+    const { error } = await supabase.rpc("aceitar_recusa", { p_recusa_id: r.id });
+    setAProcessar(null);
+    if (error) return setErro(error.message);
+    carregarRecusas();
+    carregarPicagens();
+  }
+
+  async function descartar(r: Recusa) {
+    if (!window.confirm("Descartar esta recusa? Não cria nenhuma picagem.")) return;
+    setAProcessar(r.id);
+    const { error } = await supabase.rpc("descartar_recusa", { p_recusa_id: r.id });
+    setAProcessar(null);
+    if (error) return setErro(error.message);
+    carregarRecusas();
   }
 
   const TABS: { id: Tab; label: string }[] = [
@@ -115,9 +148,10 @@ export default function Registos() {
                   Picagens recusadas ({recusas.length})
                 </h2>
                 <p className="text-sm text-red-700">
-                  Tentativas offline rejeitadas pelo servidor (ex.: colaborador
-                  desativado entretanto). Não foram registadas — confirme com o
-                  colaborador.
+                  Tentativas offline rejeitadas (ex.: colaborador desativado
+                  entretanto). <strong>Aceitar</strong> cria a picagem com a hora
+                  original (correção manual, sem foto). <strong>Descartar</strong>{" "}
+                  resolve sem criar nada.
                 </p>
               </div>
               <table className="w-full text-sm">
@@ -127,7 +161,7 @@ export default function Registos() {
                     <th className="px-4 py-2 font-medium">Código</th>
                     <th className="px-4 py-2 font-medium">Tipo</th>
                     <th className="px-4 py-2 font-medium">Motivo</th>
-                    <th className="px-4 py-2 font-medium">Reportada</th>
+                    <th className="px-4 py-2 font-medium text-right">Ação</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -137,7 +171,24 @@ export default function Registos() {
                       <td className="px-4 py-2 text-tinta">{r.codigo_pessoal ?? "—"}</td>
                       <td className="px-4 py-2">{TIPO_LABEL[r.tipo] ?? r.tipo}</td>
                       <td className="px-4 py-2 text-red-700">{r.motivo}</td>
-                      <td className="px-4 py-2 text-cinza">{fmt(r.criada_em)}</td>
+                      <td className="px-4 py-2">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => aceitar(r)}
+                            disabled={aProcessar === r.id}
+                            className="rounded-lg border border-teal text-teal px-3 py-1 text-sm font-medium hover:bg-teal/5 transition disabled:opacity-50"
+                          >
+                            Aceitar
+                          </button>
+                          <button
+                            onClick={() => descartar(r)}
+                            disabled={aProcessar === r.id}
+                            className="rounded-lg border border-red-300 text-red-700 px-3 py-1 text-sm font-medium hover:bg-red-100 transition disabled:opacity-50"
+                          >
+                            Descartar
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -173,12 +224,18 @@ export default function Registos() {
                       <td className="px-4 py-3 text-cinza">{l.loja_nome}</td>
                       <td className="px-4 py-3">{TIPO_LABEL[l.tipo] ?? l.tipo}</td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => verFoto(l.foto_url)}
-                          className="text-teal hover:underline"
-                        >
-                          ver foto
-                        </button>
+                        {l.foto_url ? (
+                          <button
+                            onClick={() => verFoto(l.foto_url as string)}
+                            className="text-teal hover:underline"
+                          >
+                            ver foto
+                          </button>
+                        ) : (
+                          <span className="text-cinza text-xs rounded-full bg-cinza/15 px-2 py-0.5">
+                            correção manual
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
