@@ -3,90 +3,112 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-type Linha = {
-  id: string;
-  nome: string;
-  codigo_pessoal: string;
-  area: string | null;
-  ativo: boolean;
-};
-
-export default function Colaboradores() {
-  const [linhas, setLinhas] = useState<Linha[] | null>(null);
-  const [erro, setErro] = useState<string | null>(null);
+export default function Inicio() {
+  const [colaboradores, setColaboradores] = useState<number | null>(null);
+  const [picagensHoje, setPicagensHoje] = useState<number | null>(null);
+  const [recusas, setRecusas] = useState<number | null>(null);
 
   useEffect(() => {
+    const inicioHoje = new Date();
+    inicioHoje.setHours(0, 0, 0, 0);
+
     supabase
       .from("trabalhador")
-      .select("id, nome, codigo_pessoal, area, ativo")
-      .order("nome")
-      .then(({ data, error }) => {
-        if (error) setErro(error.message);
-        else setLinhas(data as Linha[]);
-      });
+      .select("id", { count: "exact", head: true })
+      .eq("ativo", true)
+      .then(({ count }) => setColaboradores(count ?? 0));
+
+    supabase
+      .from("vista_picagem")
+      .select("picagem_id", { count: "exact", head: true })
+      .gte("momento_dispositivo", inicioHoje.toISOString())
+      .then(({ count }) => setPicagensHoje(count ?? 0));
+
+    supabase
+      .from("picagem_recusada")
+      .select("id", { count: "exact", head: true })
+      .then(({ count }) => setRecusas(count ?? 0));
   }, []);
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Colaboradores</h1>
-        <Link
-          href="/colaboradores/novo"
-          className="rounded-lg bg-teal text-papel px-4 py-2 font-medium hover:brightness-110 transition"
-        >
-          + Novo
-        </Link>
+      <h1 className="text-2xl font-bold mb-1">Início</h1>
+      <p className="text-cinza mb-6">Visão geral do dia.</p>
+
+      {/* KPIs reais (dados que já existem hoje) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <Kpi
+          titulo="Colaboradores ativos"
+          valor={colaboradores}
+          href="/colaboradores"
+        />
+        <Kpi titulo="Picagens hoje" valor={picagensHoje} href="/registos" />
+        <Kpi
+          titulo="Picagens recusadas"
+          valor={recusas}
+          href="/registos"
+          alerta={(recusas ?? 0) > 0}
+        />
       </div>
-      {erro && <p className="text-red-600 mb-4">{erro}</p>}
-      {!linhas ? (
-        <p className="text-cinza">A carregar…</p>
-      ) : (
-        <div className="bg-white rounded-xl border border-black/5 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-cinza border-b border-black/5">
-                <th className="px-4 py-3 font-medium">Nome</th>
-                <th className="px-4 py-3 font-medium">Código</th>
-                <th className="px-4 py-3 font-medium">Área</th>
-                <th className="px-4 py-3 font-medium">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {linhas.map((l) => (
-                <tr
-                  key={l.id}
-                  className="border-b border-black/5 last:border-0 hover:bg-papel/50"
-                >
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/colaboradores/${l.id}`}
-                      className="font-medium hover:text-teal"
-                    >
-                      {l.nome}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-cinza">{l.codigo_pessoal}</td>
-                  <td className="px-4 py-3 text-cinza">{l.area ?? "—"}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${l.ativo ? "bg-teal/10 text-teal" : "bg-cinza/15 text-cinza"}`}
-                    >
-                      {l.ativo ? "ativo" : "inativo"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {linhas.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-6 text-cinza">
-                    Sem colaboradores ainda.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+
+      {/* Por construir — depende das frentes A (horas) e B (HACCP) */}
+      <h2 className="text-sm font-semibold text-cinza uppercase tracking-wide mb-3">
+        Em breve
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <EmBreve
+          titulo="Quem está a trabalhar"
+          desc="Presentes e ausentes por horário. Depende do cálculo de horas."
+        />
+        <EmBreve
+          titulo="Tarefas HACCP"
+          desc="Checklists pendentes e concluídas do dia. Depende do módulo HACCP."
+        />
+        <EmBreve
+          titulo="Vera — assistente"
+          desc="A assistente que só responde de fontes citadas."
+        />
+      </div>
+    </div>
+  );
+}
+
+function Kpi({
+  titulo,
+  valor,
+  href,
+  alerta,
+}: {
+  titulo: string;
+  valor: number | null;
+  href: string;
+  alerta?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`block rounded-xl border bg-white shadow-sm p-5 hover:shadow transition ${alerta ? "border-red-300" : "border-black/5"}`}
+    >
+      <p className="text-sm text-cinza mb-1">{titulo}</p>
+      <p
+        className={`text-3xl font-bold ${alerta ? "text-red-700" : "text-tinta"}`}
+      >
+        {valor === null ? "…" : valor}
+      </p>
+    </Link>
+  );
+}
+
+function EmBreve({ titulo, desc }: { titulo: string; desc: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-black/15 bg-papel/40 p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <p className="font-semibold text-tinta">{titulo}</p>
+        <span className="rounded-full bg-cinza/15 text-cinza text-xs px-2 py-0.5">
+          em breve
+        </span>
+      </div>
+      <p className="text-sm text-cinza">{desc}</p>
     </div>
   );
 }

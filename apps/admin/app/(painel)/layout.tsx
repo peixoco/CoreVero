@@ -3,12 +3,11 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import Image from "next/image";
 
 const NAV = [
   { href: "/", label: "Início" },
   { href: "/colaboradores", label: "Colaboradores" },
-  { href: "/picagens", label: "Picagens" },
+  { href: "/registos", label: "Registos" },
   { href: "/definicoes", label: "Definições" },
 ];
 
