@@ -376,8 +376,16 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
       )}
 
       {fase === 'sucesso' && (
-        <View style={[s.centro, { backgroundColor: offline ? '#9A6A1E' : TEAL }]}>
-          <Text style={s.bigCheck}>{offline ? '⏳' : '✓'}</Text>
+        <View style={[s.centro, { backgroundColor: offline ? '#9A6A1E' : TINTA }]}>
+          {offline ? (
+            <Text style={s.bigCheck}>⏳</Text>
+          ) : (
+            <Image
+              source={require('./assets/check-papel.png')}
+              style={s.checkLogo}
+              resizeMode="contain"
+            />
+          )}
           <Text style={s.sucesso}>{sucessoTxt}</Text>
         </View>
       )}
@@ -493,6 +501,7 @@ const s = StyleSheet.create({
   shutterTxt: { color: PAPEL, fontSize: 20, fontWeight: '700' },
 
   bigCheck: { fontSize: 96, color: PAPEL, fontWeight: '900' },
+  checkLogo: { width: 170, height: 160, marginBottom: 8 },
   sucesso:  { fontSize: 22, color: PAPEL, fontWeight: '700', marginTop: 8, textAlign: 'center' },
 
   erro: { fontSize: 20, color: '#B23A3A', fontWeight: '600', marginBottom: 20, textAlign: 'center' },
