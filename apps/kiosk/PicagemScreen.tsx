@@ -73,6 +73,7 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
   const [codigo, setCodigo] = useState('');
   const [pin, setPin] = useState('');
   const [nome, setNome] = useState('');
+  const [autorizacaoId, setAutorizacaoId] = useState<string | null>(null);
   const [ultimaTipo, setUltimaTipo] = useState<Tipo | null>(null);
   const [ultimaMomento, setUltimaMomento] = useState<string | null>(null);
   const [tipo, setTipo] = useState<Tipo | null>(null);
@@ -93,6 +94,7 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
 
   function reset() {
     setCodigo(''); setPin(''); setNome('');
+    setAutorizacaoId(null);
     setUltimaTipo(null); setUltimaMomento(null);
     setTipo(null); setErro(''); setSucessoTxt('');
     emCurso.current = false;
@@ -136,6 +138,7 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
       return falhar('Código ou PIN inválido.');
     }
     setNome(data.nome ?? '');
+    setAutorizacaoId(data.autorizacao_id ?? null);
     setUltimaTipo((data.ultima_tipo as Tipo) ?? null);
     setUltimaMomento(data.ultima_momento ?? null);
     setTipo(opcoesPara((data.ultima_tipo as Tipo) ?? null).sugerida);
@@ -173,10 +176,9 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
     }
     if (!base64) return falhar('Falha ao capturar a foto.');
 
-    // 1) registar (gera verificacao + picagem; devolve o caminho da foto)
+    // 1) registar (consome o bilhete; devolve o caminho da foto)
     const { data, error } = await supabase.rpc('registar_picagem', {
-      p_codigo_pessoal: codigo.trim(),
-      p_pin: pin.trim(),
+      p_autorizacao_id: autorizacaoId,
       p_tipo: tipo,
       p_momento_dispositivo: momento,
       p_chave_idempotencia: chave,
