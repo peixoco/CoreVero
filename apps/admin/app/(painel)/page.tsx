@@ -27,6 +27,7 @@ export default function Inicio() {
     supabase
       .from("picagem_recusada")
       .select("id", { count: "exact", head: true })
+      .eq("estado", "pendente")
       .then(({ count }) => setRecusas(count ?? 0));
   }, []);
 
