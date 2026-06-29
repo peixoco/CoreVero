@@ -20,19 +20,19 @@
 //
 // Dependência nativa: expo-sqlite (exige rebuild).
 
-import * as SQLite from 'expo-sqlite';
-import { decode } from 'base64-arraybuffer';
-import { supabase } from './supabase';
+import * as SQLite from "expo-sqlite";
+import { decode } from "base64-arraybuffer";
+import { supabase } from "./supabase";
 
-export type EstadoItem = 'pendente' | 'registado' | 'recusado';
-export type Origem = 'online' | 'offline';
+export type EstadoItem = "pendente" | "registado" | "recusado";
+export type Origem = "online" | "offline";
 
 type Linha = {
   id: string;
   origem: Origem;
-  autorizacao_id: string;   // '' se offline
-  trabalhador_id: string;   // '' se online
-  codigo_pessoal: string;   // para reportar recusas; '' se online
+  autorizacao_id: string; // '' se offline
+  trabalhador_id: string; // '' se online
+  codigo_pessoal: string; // para reportar recusas; '' se online
   tipo: string;
   momento: string;
   foto_b64: string;
@@ -41,21 +41,26 @@ type Linha = {
   foto_path: string | null;
   tentativas: number;
   erro: string | null;
-  reportada: number;        // 1 quando a recusa já foi reportada ao servidor
+  reportada: number; // 1 quando a recusa já foi reportada ao servidor
   criado_em: string;
 };
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
-async function temColuna(db: SQLite.SQLiteDatabase, nome: string): Promise<boolean> {
-  const cols = await db.getAllAsync<{ name: string }>(`pragma table_info(outbox_item)`);
+async function temColuna(
+  db: SQLite.SQLiteDatabase,
+  nome: string,
+): Promise<boolean> {
+  const cols = await db.getAllAsync<{ name: string }>(
+    `pragma table_info(outbox_item)`,
+  );
   return cols.some((c) => c.name === nome);
 }
 
 async function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (!dbPromise) {
     dbPromise = (async () => {
-      const db = await SQLite.openDatabaseAsync('outbox.db');
+      const db = await SQLite.openDatabaseAsync("outbox.db");
       await db.execAsync(`
         pragma journal_mode = WAL;
         create table if not exists outbox_item (
@@ -73,18 +78,26 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
         );
       `);
       // Migração 3b: colunas novas em bases já existentes (3a).
-      if (!(await temColuna(db, 'origem'))) {
-        await db.execAsync(`alter table outbox_item add column origem text not null default 'online'`);
+      if (!(await temColuna(db, "origem"))) {
+        await db.execAsync(
+          `alter table outbox_item add column origem text not null default 'online'`,
+        );
       }
-      if (!(await temColuna(db, 'trabalhador_id'))) {
-        await db.execAsync(`alter table outbox_item add column trabalhador_id text not null default ''`);
+      if (!(await temColuna(db, "trabalhador_id"))) {
+        await db.execAsync(
+          `alter table outbox_item add column trabalhador_id text not null default ''`,
+        );
       }
       // 3b#1: codigo do trabalhador (para reportar recusas) + flag de report feito.
-      if (!(await temColuna(db, 'codigo_pessoal'))) {
-        await db.execAsync(`alter table outbox_item add column codigo_pessoal text not null default ''`);
+      if (!(await temColuna(db, "codigo_pessoal"))) {
+        await db.execAsync(
+          `alter table outbox_item add column codigo_pessoal text not null default ''`,
+        );
       }
-      if (!(await temColuna(db, 'reportada'))) {
-        await db.execAsync(`alter table outbox_item add column reportada integer not null default 0`);
+      if (!(await temColuna(db, "reportada"))) {
+        await db.execAsync(
+          `alter table outbox_item add column reportada integer not null default 0`,
+        );
       }
       return db;
     })();
@@ -106,7 +119,11 @@ export async function enfileirarOnline(item: {
        (id, origem, autorizacao_id, trabalhador_id, tipo, momento, foto_b64,
         estado, tentativas, criado_em)
      values (?, 'online', ?, '', ?, ?, ?, 'pendente', 0, ?)`,
-    item.id, item.autorizacao_id, item.tipo, item.momento, item.foto_b64,
+    item.id,
+    item.autorizacao_id,
+    item.tipo,
+    item.momento,
+    item.foto_b64,
     new Date().toISOString(),
   );
 }
@@ -126,7 +143,12 @@ export async function enfileirarOffline(item: {
        (id, origem, autorizacao_id, trabalhador_id, codigo_pessoal, tipo, momento, foto_b64,
         estado, tentativas, reportada, criado_em)
      values (?, 'offline', '', ?, ?, ?, ?, ?, 'pendente', 0, 0, ?)`,
-    item.id, item.trabalhador_id, item.codigo_pessoal, item.tipo, item.momento, item.foto_b64,
+    item.id,
+    item.trabalhador_id,
+    item.codigo_pessoal,
+    item.tipo,
+    item.momento,
+    item.foto_b64,
     new Date().toISOString(),
   );
 }
@@ -149,6 +171,32 @@ export async function contarRecusados(): Promise<number> {
   return row?.n ?? 0;
 }
 
+// Última picagem OFFLINE ainda por enviar deste trabalhador, SE for de hoje
+// (dia de Lisboa). Serve para o ecrã calcular o estado real offline, juntando
+// com o último estado vindo do servidor (cache). Recusadas não contam.
+export async function ultimoPickLocalHoje(
+  trabalhadorId: string,
+): Promise<{ tipo: string; momento: string } | null> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ tipo: string; momento: string }>(
+    `select tipo, momento from outbox_item
+      where origem='offline' and trabalhador_id=? and estado!='recusado'
+      order by momento asc`,
+    trabalhadorId,
+  );
+  const hoje = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Europe/Lisbon",
+  });
+  let ultima: { tipo: string; momento: string } | null = null;
+  for (const r of rows) {
+    const dia = new Date(r.momento).toLocaleDateString("en-CA", {
+      timeZone: "Europe/Lisbon",
+    });
+    if (dia === hoje) ultima = r; // ordem ascendente -> fica a de maior momento de hoje
+  }
+  return ultima;
+}
+
 async function porDrenar(): Promise<Linha[]> {
   const db = await getDb();
   return db.getAllAsync<Linha>(
@@ -157,15 +205,19 @@ async function porDrenar(): Promise<Linha[]> {
 }
 
 function eDuplicadoStorage(err: any): boolean {
-  const msg = String(err?.message ?? '').toLowerCase();
-  return msg.includes('exists') || err?.statusCode === '409' || err?.status === 409;
+  const msg = String(err?.message ?? "").toLowerCase();
+  return (
+    msg.includes("exists") || err?.statusCode === "409" || err?.status === 409
+  );
 }
 
 // Recusa terminal: o servidor rejeitou a picagem em definitivo. Repetir não muda
 // nada (cache obsoleta, bilhete usado/expirado). SQLSTATE 28000 ou mensagem.
 function eRecusaTerminal(err: any): boolean {
-  if (err?.code === '28000') return true;
-  return /inválido|invalido|desativad|utilizada|expirada/i.test(String(err?.message ?? ''));
+  if (err?.code === "28000") return true;
+  return /inválido|invalido|desativad|utilizada|expirada|sequência/i.test(
+    String(err?.message ?? ""),
+  );
 }
 
 let aDrenar = false;
@@ -182,20 +234,21 @@ export async function drenar(): Promise<void> {
         let fotoPath = it.foto_path;
 
         // PASSO 1 — registar (idempotente pela chave = it.id)
-        if (it.estado === 'pendente') {
-          const resp = it.origem === 'offline'
-            ? await supabase.rpc('registar_picagem_offline', {
-                p_trabalhador_id: it.trabalhador_id,
-                p_tipo: it.tipo,
-                p_momento_dispositivo: it.momento,
-                p_chave_idempotencia: it.id,
-              })
-            : await supabase.rpc('registar_picagem', {
-                p_autorizacao_id: it.autorizacao_id,
-                p_tipo: it.tipo,
-                p_momento_dispositivo: it.momento,
-                p_chave_idempotencia: it.id,
-              });
+        if (it.estado === "pendente") {
+          const resp =
+            it.origem === "offline"
+              ? await supabase.rpc("registar_picagem_offline", {
+                  p_trabalhador_id: it.trabalhador_id,
+                  p_tipo: it.tipo,
+                  p_momento_dispositivo: it.momento,
+                  p_chave_idempotencia: it.id,
+                })
+              : await supabase.rpc("registar_picagem", {
+                  p_autorizacao_id: it.autorizacao_id,
+                  p_tipo: it.tipo,
+                  p_momento_dispositivo: it.momento,
+                  p_chave_idempotencia: it.id,
+                });
 
           const { data, error } = resp;
 
@@ -206,13 +259,15 @@ export async function drenar(): Promise<void> {
               // se deve reter um rosto em repouso indefinidamente (minimização).
               await db.runAsync(
                 `update outbox_item set estado='recusado', erro=?, foto_b64='' where id=?`,
-                error.message, it.id,
+                error.message,
+                it.id,
               );
             } else {
               // transitório (rede, kiosk revogado à espera de reativação)
               await db.runAsync(
                 `update outbox_item set tentativas = tentativas + 1, erro = ? where id = ?`,
-                error.message, it.id,
+                error.message,
+                it.id,
               );
             }
             continue;
@@ -220,7 +275,8 @@ export async function drenar(): Promise<void> {
           if (!data?.foto_path) {
             await db.runAsync(
               `update outbox_item set tentativas = tentativas + 1, erro = ? where id = ?`,
-              'registo sem caminho', it.id,
+              "registo sem caminho",
+              it.id,
             );
             continue;
           }
@@ -230,22 +286,26 @@ export async function drenar(): Promise<void> {
             `update outbox_item
                set estado='registado', verificacao_id=?, foto_path=?, erro=null
              where id=?`,
-            (data.verificacao_id as string) ?? null, fotoPath, it.id,
+            (data.verificacao_id as string) ?? null,
+            fotoPath,
+            it.id,
           );
         }
 
         // PASSO 2 — upload da foto
         if (fotoPath) {
           const { error: upErr } = await supabase.storage
-            .from('picagens')
+            .from("picagens")
             .upload(fotoPath, decode(it.foto_b64), {
-              contentType: 'image/jpeg', upsert: false,
+              contentType: "image/jpeg",
+              upsert: false,
             });
 
           if (upErr && !eDuplicadoStorage(upErr)) {
             await db.runAsync(
               `update outbox_item set tentativas = tentativas + 1, erro = ? where id = ?`,
-              upErr.message, it.id,
+              upErr.message,
+              it.id,
             );
             continue;
           }
@@ -256,7 +316,8 @@ export async function drenar(): Promise<void> {
         const db2 = await getDb();
         await db2.runAsync(
           `update outbox_item set tentativas = tentativas + 1, erro = ? where id = ?`,
-          String(e?.message ?? e), it.id,
+          String(e?.message ?? e),
+          it.id,
         );
       }
     }
@@ -275,13 +336,13 @@ async function reportarRecusas(db: SQLite.SQLiteDatabase): Promise<void> {
       where estado='recusado' and origem='offline' and reportada=0`,
   );
   for (const r of recusas) {
-    const { error } = await supabase.rpc('reportar_picagem_recusada', {
+    const { error } = await supabase.rpc("reportar_picagem_recusada", {
       p_trabalhador_id: r.trabalhador_id || null,
       p_codigo_pessoal: r.codigo_pessoal || null,
       p_tipo: r.tipo,
       p_momento_dispositivo: r.momento,
       p_chave_idempotencia: r.id,
-      p_motivo: r.erro ?? 'recusada no drain',
+      p_motivo: r.erro ?? "recusada no drain",
     });
     if (!error) {
       // Reportada com sucesso: o servidor (admin) passa a ser o dono da recusa.

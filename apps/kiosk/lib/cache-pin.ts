@@ -1,11 +1,14 @@
 // lib/cache-pin.ts
-// Autorização offline (Sprint 3b).
+// Autorização offline (Sprint 3b) + último estado para opções válidas offline.
 //
 // O que isto resolve: durante um corte de rede PROLONGADO, a iniciar_picagem
 // (que valida o PIN no servidor) não responde. Sem isto, o colaborador não pica.
 // Com isto, o kiosk valida o PIN localmente contra uma cache de HMACs e deixa
 // picar; a picagem entra na fila como "autorizada offline" e o servidor
 // re-valida no drain.
+//
+// A cache guarda também, por trabalhador, o ÚLTIMO tipo+momento de picagem
+// (não-anulada), para o ecrã mostrar só as opções válidas offline.
 //
 // Segurança (modelo assumido, ver doc 07):
 //   - A chave HMAC do dispositivo vive no KEYCHAIN (expo-secure-store), nunca
@@ -24,16 +27,16 @@
 //   npx expo install expo-secure-store
 //   npm i @noble/hashes@^1.4.0
 
-import * as SQLite from 'expo-sqlite';
-import * as SecureStore from 'expo-secure-store';
-import * as Crypto from 'expo-crypto';
-import { hmac } from '@noble/hashes/hmac';
-import { sha256 } from '@noble/hashes/sha256';
-import { utf8ToBytes, bytesToHex } from '@noble/hashes/utils';
-import { supabase } from './supabase';
+import * as SQLite from "expo-sqlite";
+import * as SecureStore from "expo-secure-store";
+import * as Crypto from "expo-crypto";
+import { hmac } from "@noble/hashes/hmac";
+import { sha256 } from "@noble/hashes/sha256";
+import { utf8ToBytes, bytesToHex } from "@noble/hashes/utils";
+import { supabase } from "./supabase";
 
-const KEY_NAME = 'corevero_device_hmac_key';
-const REFRESH_MIN_MS = 5 * 60 * 1000;       // não refrescar a cache mais que 1x/5min
+const KEY_NAME = "corevero_device_hmac_key";
+const REFRESH_MIN_MS = 5 * 60 * 1000; // não refrescar a cache mais que 1x/5min
 // Validade local da cache. Sem refresh dentro deste prazo, a validação offline
 // PÁRA — protege um tablet roubado mantido offline e evita validar contra dados
 // muito antigos. Generoso para o piloto (cobre um fim de semana); baixar = mais
@@ -41,13 +44,13 @@ const REFRESH_MIN_MS = 5 * 60 * 1000;       // não refrescar a cache mais que 1
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
-let jaRegistou = false;       // chave registada no servidor nesta sessão
-let ultimoRefresh = 0;        // timestamp do último refresh bem-sucedido
+let jaRegistou = false; // chave registada no servidor nesta sessão
+let ultimoRefresh = 0; // timestamp do último refresh bem-sucedido
 
 async function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (!dbPromise) {
     dbPromise = (async () => {
-      const db = await SQLite.openDatabaseAsync('cache.db');
+      const db = await SQLite.openDatabaseAsync("cache.db");
       await db.execAsync(`
         pragma journal_mode = WAL;
         create table if not exists cache_pin (
@@ -61,6 +64,14 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
           valor text not null
         );
       `);
+      // Migração: último estado por trabalhador (colunas podem já existir).
+      for (const col of ["ultimo_tipo", "ultimo_momento"]) {
+        try {
+          await db.execAsync(`alter table cache_pin add column ${col} text`);
+        } catch {
+          /* já existe */
+        }
+      }
       return db;
     })();
   }
@@ -102,12 +113,16 @@ async function obterOuCriarChave(): Promise<string> {
 
 // HMAC byte-a-byte igual ao servidor (ver nota de compatibilidade no topo).
 function calcularHmac(chaveHex: string, codigo: string, pin: string): string {
-  return bytesToHex(hmac(sha256, utf8ToBytes(chaveHex), utf8ToBytes(`${codigo}:${pin}`)));
+  return bytesToHex(
+    hmac(sha256, utf8ToBytes(chaveHex), utf8ToBytes(`${codigo}:${pin}`)),
+  );
 }
 
 // --- Registo da chave no servidor --------------------------------------------
 async function registarChave(chaveHex: string): Promise<void> {
-  const { error } = await supabase.rpc('registar_chave_kiosk', { p_chave_hex: chaveHex });
+  const { error } = await supabase.rpc("registar_chave_kiosk", {
+    p_chave_hex: chaveHex,
+  });
   if (error) throw error;
   jaRegistou = true;
 }
@@ -120,27 +135,37 @@ export async function refrescarCache(forcar = false): Promise<void> {
 
   const chave = await obterOuCriarChave();
   if (!jaRegistou) {
-    try { await registarChave(chave); } catch { /* tenta na chamada ao RPC abaixo */ }
+    try {
+      await registarChave(chave);
+    } catch {
+      /* tenta na chamada ao RPC abaixo */
+    }
   }
 
-  let { data, error } = await supabase.rpc('obter_cache_pins');
+  let { data, error } = await supabase.rpc("obter_cache_pins");
 
   // Chave ainda não registada no servidor -> regista e tenta outra vez.
-  if (error && /registada/i.test(error.message ?? '')) {
+  if (error && /registada/i.test(error.message ?? "")) {
     await registarChave(chave);
-    ({ data, error } = await supabase.rpc('obter_cache_pins'));
+    ({ data, error } = await supabase.rpc("obter_cache_pins"));
   }
   if (error) throw error;
   if (!Array.isArray(data)) return;
 
   const db = await getDb();
   await db.withTransactionAsync(async () => {
-    await db.runAsync('delete from cache_pin');
+    await db.runAsync("delete from cache_pin");
     for (const r of data as any[]) {
       await db.runAsync(
-        `insert into cache_pin (codigo_pessoal, nome, trabalhador_id, pin_hmac)
-         values (?, ?, ?, ?)`,
-        r.codigo_pessoal, r.nome, r.trabalhador_id, r.pin_hmac,
+        `insert into cache_pin
+           (codigo_pessoal, nome, trabalhador_id, pin_hmac, ultimo_tipo, ultimo_momento)
+         values (?, ?, ?, ?, ?, ?)`,
+        r.codigo_pessoal,
+        r.nome,
+        r.trabalhador_id,
+        r.pin_hmac,
+        r.ultimo_tipo ?? null,
+        r.ultimo_momento ?? null,
       );
     }
   });
@@ -149,11 +174,18 @@ export async function refrescarCache(forcar = false): Promise<void> {
 }
 
 // --- Validação offline -------------------------------------------------------
-// Devolve o trabalhador se o PIN bater com o HMAC em cache; null caso contrário.
-export type TrabalhadorOffline = { trabalhador_id: string; nome: string };
+// Devolve o trabalhador (com o último estado conhecido) se o PIN bater com o
+// HMAC em cache; null caso contrário.
+export type TrabalhadorOffline = {
+  trabalhador_id: string;
+  nome: string;
+  ultimo_tipo: string | null;
+  ultimo_momento: string | null;
+};
 
 export async function validarPinOffline(
-  codigo: string, pin: string,
+  codigo: string,
+  pin: string,
 ): Promise<TrabalhadorOffline | null> {
   // Cache expirada (sem refresh dentro do TTL) -> não valida offline.
   if (await cacheExpirada()) return null;
@@ -163,18 +195,33 @@ export async function validarPinOffline(
 
   const db = await getDb();
   const row = await db.getFirstAsync<{
-    nome: string; trabalhador_id: string; pin_hmac: string;
-  }>(`select nome, trabalhador_id, pin_hmac from cache_pin where codigo_pessoal = ?`, codigo);
+    nome: string;
+    trabalhador_id: string;
+    pin_hmac: string;
+    ultimo_tipo: string | null;
+    ultimo_momento: string | null;
+  }>(
+    `select nome, trabalhador_id, pin_hmac, ultimo_tipo, ultimo_momento
+       from cache_pin where codigo_pessoal = ?`,
+    codigo,
+  );
   if (!row) return null;
 
   const mac = calcularHmac(chave, codigo, pin);
   if (mac !== row.pin_hmac) return null;
-  return { trabalhador_id: row.trabalhador_id, nome: row.nome };
+  return {
+    trabalhador_id: row.trabalhador_id,
+    nome: row.nome,
+    ultimo_tipo: row.ultimo_tipo ?? null,
+    ultimo_momento: row.ultimo_momento ?? null,
+  };
 }
 
 // Há cache utilizável? (para a UI saber se a validação offline é sequer possível)
 export async function temCache(): Promise<boolean> {
   const db = await getDb();
-  const row = await db.getFirstAsync<{ n: number }>(`select count(*) as n from cache_pin`);
+  const row = await db.getFirstAsync<{ n: number }>(
+    `select count(*) as n from cache_pin`,
+  );
   return (row?.n ?? 0) > 0;
 }
