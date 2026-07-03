@@ -29,7 +29,9 @@ export default function NovoColaborador() {
   function set(k: string, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
   }
-  const nn = (v: string) => (v.trim() === "" ? null : v.trim());
+  // Args opcionais da RPC são `arg?: string` (string | undefined). Vazio -> undefined,
+  // que omite o campo e deixa o SQL usar o DEFAULT NULL. (null não é aceite pelos tipos.)
+  const nn = (v: string) => (v.trim() === "" ? undefined : v.trim());
 
   async function gravar(e: React.FormEvent) {
     e.preventDefault();

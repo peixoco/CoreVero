@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       acao_corretiva: {
@@ -59,6 +84,61 @@ export type Database = {
             columns: ["empresa_id", "verificacao_id"]
             isOneToOne: false
             referencedRelation: "verificacao"
+            referencedColumns: ["empresa_id", "id"]
+          },
+        ]
+      }
+      autorizacao: {
+        Row: {
+          created_at: string
+          criada_em: string
+          empresa_id: string
+          expira_em: string
+          id: string
+          loja_id: string
+          trabalhador_id: string
+          usada_em: string | null
+        }
+        Insert: {
+          created_at?: string
+          criada_em?: string
+          empresa_id: string
+          expira_em: string
+          id?: string
+          loja_id: string
+          trabalhador_id: string
+          usada_em?: string | null
+        }
+        Update: {
+          created_at?: string
+          criada_em?: string
+          empresa_id?: string
+          expira_em?: string
+          id?: string
+          loja_id?: string
+          trabalhador_id?: string
+          usada_em?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autorizacao_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autorizacao_empresa_id_loja_id_fkey"
+            columns: ["empresa_id", "loja_id"]
+            isOneToOne: false
+            referencedRelation: "loja"
+            referencedColumns: ["empresa_id", "id"]
+          },
+          {
+            foreignKeyName: "autorizacao_empresa_id_trabalhador_id_fkey"
+            columns: ["empresa_id", "trabalhador_id"]
+            isOneToOne: false
+            referencedRelation: "trabalhador"
             referencedColumns: ["empresa_id", "id"]
           },
         ]
@@ -336,6 +416,7 @@ export type Database = {
           lojas_licenciadas: number
           nome: string
           plano: string | null
+          retencao_foto_dias: number
         }
         Insert: {
           colaboradores_licenciados?: number
@@ -344,6 +425,7 @@ export type Database = {
           lojas_licenciadas?: number
           nome: string
           plano?: string | null
+          retencao_foto_dias?: number
         }
         Update: {
           colaboradores_licenciados?: number
@@ -352,8 +434,60 @@ export type Database = {
           lojas_licenciadas?: number
           nome?: string
           plano?: string | null
+          retencao_foto_dias?: number
         }
         Relationships: []
+      }
+      kiosk: {
+        Row: {
+          ativo: boolean
+          chave_hmac: string | null
+          chave_registada_em: string | null
+          created_at: string
+          empresa_id: string
+          id: string
+          loja_id: string
+          revogado_em: string | null
+          revogado_por: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          chave_hmac?: string | null
+          chave_registada_em?: string | null
+          created_at?: string
+          empresa_id: string
+          id: string
+          loja_id: string
+          revogado_em?: string | null
+          revogado_por?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          chave_hmac?: string | null
+          chave_registada_em?: string | null
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          loja_id?: string
+          revogado_em?: string | null
+          revogado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kiosk_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kiosk_empresa_id_loja_id_fkey"
+            columns: ["empresa_id", "loja_id"]
+            isOneToOne: false
+            referencedRelation: "loja"
+            referencedColumns: ["empresa_id", "id"]
+          },
+        ]
       }
       loja: {
         Row: {
@@ -430,23 +564,35 @@ export type Database = {
       }
       picagem: {
         Row: {
+          anulada: boolean
+          anulada_em: string | null
+          anulada_por: string | null
           created_at: string
           empresa_id: string
           id: string
+          motivo_anulacao: string | null
           tipo: string
           verificacao_id: string
         }
         Insert: {
+          anulada?: boolean
+          anulada_em?: string | null
+          anulada_por?: string | null
           created_at?: string
           empresa_id: string
           id?: string
+          motivo_anulacao?: string | null
           tipo: string
           verificacao_id: string
         }
         Update: {
+          anulada?: boolean
+          anulada_em?: string | null
+          anulada_por?: string | null
           created_at?: string
           empresa_id?: string
           id?: string
+          motivo_anulacao?: string | null
           tipo?: string
           verificacao_id?: string
         }
@@ -463,6 +609,75 @@ export type Database = {
             columns: ["empresa_id", "verificacao_id"]
             isOneToOne: false
             referencedRelation: "verificacao"
+            referencedColumns: ["empresa_id", "id"]
+          },
+        ]
+      }
+      picagem_recusada: {
+        Row: {
+          chave_idempotencia: string
+          codigo_pessoal: string | null
+          criada_em: string
+          empresa_id: string
+          estado: string
+          id: string
+          kiosk_id: string
+          loja_id: string
+          momento_dispositivo: string
+          motivo: string
+          picagem_id: string | null
+          resolvida_em: string | null
+          resolvida_por: string | null
+          tipo: string
+          trabalhador_id: string | null
+        }
+        Insert: {
+          chave_idempotencia: string
+          codigo_pessoal?: string | null
+          criada_em?: string
+          empresa_id: string
+          estado?: string
+          id?: string
+          kiosk_id: string
+          loja_id: string
+          momento_dispositivo: string
+          motivo: string
+          picagem_id?: string | null
+          resolvida_em?: string | null
+          resolvida_por?: string | null
+          tipo: string
+          trabalhador_id?: string | null
+        }
+        Update: {
+          chave_idempotencia?: string
+          codigo_pessoal?: string | null
+          criada_em?: string
+          empresa_id?: string
+          estado?: string
+          id?: string
+          kiosk_id?: string
+          loja_id?: string
+          momento_dispositivo?: string
+          motivo?: string
+          picagem_id?: string | null
+          resolvida_em?: string | null
+          resolvida_por?: string | null
+          tipo?: string
+          trabalhador_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "picagem_recusada_empresa_fk"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "picagem_recusada_loja_fk"
+            columns: ["empresa_id", "loja_id"]
+            isOneToOne: false
+            referencedRelation: "loja"
             referencedColumns: ["empresa_id", "id"]
           },
         ]
@@ -649,7 +864,11 @@ export type Database = {
       }
       verificacao: {
         Row: {
+          autorizacao_offline: boolean
+          chave_idempotencia: string | null
+          correcao_manual: boolean
           created_at: string
+          criada_por: string | null
           empresa_id: string
           foto_url: string | null
           id: string
@@ -659,7 +878,11 @@ export type Database = {
           trabalhador_id: string
         }
         Insert: {
+          autorizacao_offline?: boolean
+          chave_idempotencia?: string | null
+          correcao_manual?: boolean
           created_at?: string
+          criada_por?: string | null
           empresa_id: string
           foto_url?: string | null
           id?: string
@@ -669,7 +892,11 @@ export type Database = {
           trabalhador_id: string
         }
         Update: {
+          autorizacao_offline?: boolean
+          chave_idempotencia?: string | null
+          correcao_manual?: boolean
           created_at?: string
+          criada_por?: string | null
           empresa_id?: string
           foto_url?: string | null
           id?: string
@@ -704,15 +931,48 @@ export type Database = {
       }
     }
     Views: {
+      vista_horas_dia: {
+        Row: {
+          dia: string | null
+          empresa_id: string | null
+          horas_pausa: number | null
+          horas_trabalho: number | null
+          incompleto: boolean | null
+          seg_pausa: number | null
+          seg_trabalho: number | null
+          todos_fechados: boolean | null
+          trabalhador_id: string | null
+          turnos: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verificacao_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verificacao_empresa_id_trabalhador_id_fkey"
+            columns: ["empresa_id", "trabalhador_id"]
+            isOneToOne: false
+            referencedRelation: "trabalhador"
+            referencedColumns: ["empresa_id", "id"]
+          },
+        ]
+      }
       vista_picagem: {
         Row: {
+          anulada: boolean | null
           codigo_pessoal: string | null
+          correcao_manual: boolean | null
           empresa_id: string | null
           foto_url: string | null
           loja_id: string | null
           loja_nome: string | null
           momento_dispositivo: string | null
           momento_servidor: string | null
+          motivo_anulacao: string | null
           picagem_id: string | null
           tipo: string | null
           trabalhador_id: string | null
@@ -731,6 +991,16 @@ export type Database = {
       }
     }
     Functions: {
+      aceitar_recusa: { Args: { p_recusa_id: string }; Returns: Json }
+      anular_picagem: {
+        Args: { p_motivo: string; p_picagem_id: string }
+        Returns: undefined
+      }
+      aplicar_correcoes: { Args: { p_linhas: Json }; Returns: Json }
+      aplicar_folha: {
+        Args: { p_linhas: Json; p_simular?: boolean }
+        Returns: Json
+      }
       atualizar_colaborador: {
         Args: {
           p_area: string
@@ -745,6 +1015,26 @@ export type Database = {
           p_telefone?: string
         }
         Returns: undefined
+      }
+      corrigir_picagem: {
+        Args: {
+          p_loja_id?: string
+          p_momento: string
+          p_motivo?: string
+          p_tipo: string
+          p_trabalhador_id: string
+        }
+        Returns: Json
+      }
+      corrigir_picagem_bloco: {
+        Args: {
+          p_datas: string[]
+          p_loja_id?: string
+          p_movimentos: Json
+          p_simular?: boolean
+          p_trabalhadores: string[]
+        }
+        Returns: Json
       }
       criar_colaborador: {
         Args: {
@@ -764,22 +1054,86 @@ export type Database = {
           trabalhador_id: string
         }[]
       }
+      descartar_recusa: { Args: { p_recusa_id: string }; Returns: undefined }
       empresa_atual: { Args: never; Returns: string }
       gerar_novo_pin: { Args: { p_trabalhador_id: string }; Returns: string }
+      iniciar_picagem: {
+        Args: { p_codigo_pessoal: string; p_pin: string }
+        Returns: Json
+      }
       is_admin: { Args: never; Returns: boolean }
       is_kiosk: { Args: never; Returns: boolean }
       jwt_app_meta: { Args: never; Returns: Json }
+      kiosk_ativo: { Args: never; Returns: boolean }
+      limpar_autorizacoes: { Args: never; Returns: number }
       loja_atual: { Args: never; Returns: string }
+      obter_cache_pins: {
+        Args: never
+        Returns: {
+          codigo_pessoal: string
+          nome: string
+          pin_hmac: string
+          trabalhador_id: string
+          ultimo_momento: string
+          ultimo_tipo: string
+        }[]
+      }
+      purgar_fotos_expiradas: { Args: never; Returns: number }
+      reativar_kiosk: { Args: { p_kiosk_id: string }; Returns: undefined }
+      registar_chave_kiosk: {
+        Args: { p_chave_hex: string }
+        Returns: undefined
+      }
       registar_picagem: {
         Args: {
-          p_codigo_pessoal: string
-          p_foto_url: string
+          p_autorizacao_id: string
+          p_chave_idempotencia: string
           p_momento_dispositivo: string
-          p_pin: string
           p_tipo: string
-          p_verificacao_id: string
+        }
+        Returns: Json
+      }
+      registar_picagem_offline: {
+        Args: {
+          p_chave_idempotencia: string
+          p_momento_dispositivo: string
+          p_tipo: string
+          p_trabalhador_id: string
+        }
+        Returns: Json
+      }
+      reportar_picagem_recusada: {
+        Args: {
+          p_chave_idempotencia: string
+          p_codigo_pessoal: string
+          p_momento_dispositivo: string
+          p_motivo: string
+          p_tipo: string
+          p_trabalhador_id: string
         }
         Returns: undefined
+      }
+      revogar_kiosk: { Args: { p_kiosk_id: string }; Returns: undefined }
+      sequencia_valida: {
+        Args: {
+          p_empresa: string
+          p_momento: string
+          p_tipo: string
+          p_trabalhador: string
+        }
+        Returns: boolean
+      }
+      terminar_sessao_kiosk: {
+        Args: { p_kiosk_id: string }
+        Returns: undefined
+      }
+      verificacao_do_trabalhador: {
+        Args: { p_trabalhador_id: string; p_verificacao_id: string }
+        Returns: boolean
+      }
+      verificacao_pertence_kiosk: {
+        Args: { p_verificacao_id: string }
+        Returns: boolean
       }
     }
     Enums: {
@@ -909,6 +1263,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

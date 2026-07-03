@@ -246,10 +246,14 @@ export default function Validacoes() {
               </p>
             )}
             {preview.erros.length > 0 && (
-              <p className="text-sm text-red-700 mb-2">
-                {preview.erros.length} erro(s):{" "}
-                {preview.erros.map((e) => `linha ${e.linha}: ${e.erro}`).join("; ")}
-              </p>
+              <div className="text-sm text-red-700 mb-2">
+                <p className="font-medium">{preview.erros.length} erro(s):</p>
+                <ul className="list-disc pl-5">
+                  {preview.erros.map((e, i) => (
+                    <li key={i}>linha {e.linha}{e.codigo ? ` · ${e.codigo}` : ""}{e.data ? ` · ${e.data}` : ""} — {e.erro}</li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             {preview.detalhes.length > 0 && (
@@ -288,10 +292,32 @@ export default function Validacoes() {
 
         {/* RESULTADO */}
         {feito && (
-          <p className="mt-4 text-sm text-teal font-medium">
-            Aplicado: {feito.adicionar} adicionadas · {feito.substituir} substituídas.
-            {feito.erros.length > 0 && <span className="text-red-600"> {feito.erros.length} erro(s).</span>}
-          </p>
+          <div className="mt-4 rounded-lg border border-black/10 bg-papel/40 p-4 space-y-2">
+            <p className="text-sm font-medium text-teal">
+              Aplicado: {feito.adicionar} adicionadas · {feito.substituir} substituídas.
+              {feito.sem_alteracao > 0 && (
+                <span className="text-cinza font-normal"> · {feito.sem_alteracao} já iguais</span>
+              )}
+            </p>
+
+            {feito.complexos.length > 0 && (
+              <p className="text-sm text-amber-800">
+                {feito.complexos.length} dia(s) complexo(s) ignorado(s) (vários turnos) — edita na ficha:{" "}
+                {feito.complexos.map((c) => `${c.codigo}/${c.data}`).join(", ")}
+              </p>
+            )}
+
+            {feito.erros.length > 0 && (
+              <div className="text-sm text-red-700">
+                <p className="font-medium">{feito.erros.length} erro(s) — estas linhas não foram aplicadas:</p>
+                <ul className="list-disc pl-5">
+                  {feito.erros.map((e, i) => (
+                    <li key={i}>linha {e.linha}{e.codigo ? ` · ${e.codigo}` : ""}{e.data ? ` · ${e.data}` : ""} — {e.erro}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
