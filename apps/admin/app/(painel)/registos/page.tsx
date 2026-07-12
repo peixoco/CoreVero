@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
+import { paredeParaUTC } from "@corevero/core";
 import Validacoes from "./validacoes";
 
 type Tab = "picagens" | "checklists" | "validacoes";
@@ -481,8 +482,9 @@ function NovaPicagemModal({
     if (!colab) return setErro("Escolhe o colaborador.");
     if (!momento) return setErro("Indica a data e a hora.");
     setBusy(true);
-    // datetime-local é hora de parede; assume-se browser em Europe/Lisbon (como o resto do painel).
-    const iso = new Date(momento).toISOString();
+    // datetime-local é hora de parede de Lisboa; conversão DST-aware, independente do fuso do browser.
+    const [mData, mHora] = momento.split("T");
+    const iso = paredeParaUTC(mData, mHora);
     const { error } = await supabase.rpc("corrigir_picagem", {
       p_trabalhador_id: colab,
       p_tipo: tipo,

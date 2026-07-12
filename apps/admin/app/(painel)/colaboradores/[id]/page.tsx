@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { paredeParaUTC } from "@corevero/core";
 
 const TIPO_LABEL: Record<string, string> = {
   entrada: "Entrada",
@@ -47,13 +48,6 @@ function horaLisboa(ts: string) {
     minute: "2-digit",
     timeZone: "Europe/Lisbon",
   });
-}
-// Converte (data + hora de parede de Lisboa) -> ISO UTC correto, com DST.
-function paredeParaUTC(data: string, hora: string) {
-  const naive = new Date(`${data}T${hora}:00Z`);
-  const lis = new Date(naive.toLocaleString("en-US", { timeZone: "Europe/Lisbon" }));
-  const utc = new Date(naive.toLocaleString("en-US", { timeZone: "UTC" }));
-  return new Date(naive.getTime() - (lis.getTime() - utc.getTime())).toISOString();
 }
 function hm(seg: number) {
   const h = Math.floor(seg / 3600);
