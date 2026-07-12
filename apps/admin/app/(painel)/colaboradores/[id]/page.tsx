@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { ErroAviso, mensagemErro } from "@/lib/erros";
-import { paredeParaUTC } from "@corevero/core";
+import { paredeParaUTC, LIMIAR_DESVIO_SEGUNDOS, formatarDesvio } from "@corevero/core";
 
 const TIPO_LABEL: Record<string, string> = {
   entrada: "Entrada",
@@ -25,6 +25,7 @@ type Picagem = {
   anulada: boolean;
   motivo_anulacao: string | null;
   correcao_manual: boolean;
+  desvio_segundos: number | null;
 };
 type Horas = {
   seg_trabalho: number;
@@ -93,7 +94,7 @@ export default function Colaborador() {
 
     supabase
       .from("vista_picagem")
-      .select("picagem_id, tipo, momento_dispositivo, anulada, motivo_anulacao, correcao_manual")
+      .select("picagem_id, tipo, momento_dispositivo, anulada, motivo_anulacao, correcao_manual, desvio_segundos")
       .eq("trabalhador_id", id)
       .gte("momento_dispositivo", ini.toISOString())
       .lte("momento_dispositivo", fim.toISOString())
@@ -286,6 +287,15 @@ export default function Colaborador() {
                             anulada
                           </span>
                         )}
+                        {p.desvio_segundos !== null &&
+                          Math.abs(p.desvio_segundos) > LIMIAR_DESVIO_SEGUNDOS && (
+                            <span
+                              className="rounded-full bg-amber-100 text-amber-800 text-xs px-2 py-0.5"
+                              title={formatarDesvio(p.desvio_segundos) ?? ""}
+                            >
+                              desvio
+                            </span>
+                          )}
                       </div>
                     </td>
                     <td className="px-4 py-2 text-right">

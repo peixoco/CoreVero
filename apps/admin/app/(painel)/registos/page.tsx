@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import { ErroAviso, mensagemErro } from "@/lib/erros";
-import { paredeParaUTC } from "@corevero/core";
+import { paredeParaUTC, LIMIAR_DESVIO_SEGUNDOS, formatarDesvio } from "@corevero/core";
 import Validacoes from "./validacoes";
 
 type Tab = "picagens" | "checklists" | "validacoes";
@@ -18,6 +18,7 @@ type Picagem = {
   foto_url: string | null;
   correcao_manual: boolean;
   anulada: boolean;
+  desvio_segundos: number | null;
 };
 
 type Recusa = {
@@ -89,7 +90,7 @@ export default function Registos() {
     let q = supabase
       .from("vista_picagem")
       .select(
-        "picagem_id, tipo, momento_dispositivo, trabalhador_id, trabalhador_nome, codigo_pessoal, loja_nome, foto_url, correcao_manual, anulada",
+        "picagem_id, tipo, momento_dispositivo, trabalhador_id, trabalhador_nome, codigo_pessoal, loja_nome, foto_url, correcao_manual, anulada, desvio_segundos",
       )
       .gte("momento_dispositivo", desde)
       .lte("momento_dispositivo", ate)
@@ -370,6 +371,15 @@ export default function Registos() {
                             Dispositivo
                           </span>
                         )}
+                        {l.desvio_segundos !== null &&
+                          Math.abs(l.desvio_segundos) > LIMIAR_DESVIO_SEGUNDOS && (
+                            <span
+                              className="ml-1 inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-800 text-xs px-2 py-0.5"
+                              title={formatarDesvio(l.desvio_segundos) ?? ""}
+                            >
+                              desvio
+                            </span>
+                          )}
                         {l.foto_url && (
                           <button
                             onClick={() => verFoto(l.foto_url as string)}
