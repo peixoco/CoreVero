@@ -11,7 +11,7 @@ SaaS multi-tenant (isolamento por `empresa_id` + RLS) para restauração em Port
 
 ## Comandos
 
-- Gate obrigatório antes de qualquer commit: `npm run build`
+- Gate obrigatório antes de qualquer commit: `npm run build` na raiz (build do admin + typecheck do kiosk)
 - Aplicar migrações: `npx supabase db push`
 - Regenerar tipos após alteração de schema: `npx supabase gen types typescript --linked`
 

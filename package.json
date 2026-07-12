@@ -5,6 +5,9 @@
     "apps/*",
     "packages/*"
   ],
+  "scripts": {
+    "build": "npm run build -w admin && npm run typecheck -w kiosk"
+  },
   "devDependencies": {
     "supabase": "^2.108.0"
   },

@@ -1,6 +1,6 @@
-# 09 — Pendentes e Roadmap de Lançamento (v3, R0 fechado)
+# 09 — Pendentes e Roadmap de Lançamento (v3.1, R0 e R1 fechados)
 
-> **Substitui a v2.** R0 executado de ponta a ponta em 2026-07-12 (7 commits, detalhe em `docs/R0-notas.md`), com verificação independente na BD real (`xghfsudvpsgqkslobttj`) por consulta read-only. Relacionados: `08-roadmap.md`, `06-jurisdicao-rh.md`, `10-visao-potencial-plataforma.md`, `docs/09-levantamento-*.md`.
+> **Substitui a v2.** R0 executado de ponta a ponta em 2026-07-12 (7 commits, detalhe em `docs/R0-notas.md`), com verificação independente na BD real (`xghfsudvpsgqkslobttj`) por consulta read-only. R1 fechado no mesmo dia (detalhe em `docs/R1-notas.md`). Relacionados: `08-roadmap.md`, `06-jurisdicao-rh.md`, `10-visao-potencial-plataforma.md`, `docs/09-levantamento-*.md`.
 
 ---
 
@@ -24,7 +24,7 @@
 - Edge case offline: cache não refrescada <5 min antes do corte → recusa visível no drain, não perda silenciosa.
 - Dívida de testes da fase 2+ além do `07_...` novo — listada em `docs/R0-notas.md`.
 
-**Nota operacional:** a raiz do monorepo não tem script `build`; o gate corre no workspace `apps/admin` (+ `tsc` no kiosk). A suite SQL corre com `tests/run_local.sh` (Postgres descartável; salta migrações pg_cron/pg_net, indisponíveis fora do Supabase).
+**Nota operacional:** ~~a raiz do monorepo não tem script `build`~~ resolvido no R1 — `npm run build` na raiz corre o build do admin + typecheck do kiosk. A suite SQL corre com `tests/run_local.sh` (Postgres descartável; salta migrações pg_cron/pg_net, indisponíveis fora do Supabase).
 
 ---
 
@@ -32,13 +32,10 @@
 
 ### ~~R0 — Saneamento~~ ✅ Fechado 2026-07-12
 
-### R1 — Fecho da Frente A (S) ← **atual**
-1. Deteção de discrepância `momento_dispositivo` vs `momento_servidor` — confirmado na BD que **não existe** (as vistas expõem os dois timestamps, nenhuma calcula delta). É a única peça nova: coluna/expressão de desvio + sinalização no admin acima de um limiar configurável.
-2. Teste de ponta a ponta do DoD: exportar as horas de um colaborador num mês, com pausas descontadas, de um registo append-only.
+### ~~R1 — Fecho da Frente A (S)~~ ✅ Fechado 2026-07-12
+`vista_picagem.desvio_segundos` (migração `20260712160000`, verificada na BD real) + badge informativo no admin acima de 300 s (`LIMIAR_DESVIO_SEGUNDOS` em `packages/core`; passa a configuração por empresa no R3) + teste do DoD `tests/09_dod_frente_a_test.sql` (mês sintético: pausas descontadas, dois turnos, anulada + correção, desvio injetado de 420 s). Detalhe e divergências em `docs/R1-notas.md`.
 
-**Pronto quando:** o DoD da Frente A passa num teste real.
-
-### R2 — Frente B: HACCP (XL)
+### R2 — Frente B: HACCP (XL) ← **atual**
 Pela ordem fechada: schema `checklist_*` + proveniência de limites → construtor de templates → motor de conformidade + ação corretiva forçada → preenchimento no kiosk → notificações (Resend) → agendamento + `em_falta` → **Vera + RAG** por último, sobre motor estável.
 
 ### R3 — Frente C: camada RH (L)
