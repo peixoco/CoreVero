@@ -12,9 +12,11 @@
 // Idempotência: o id do item É a chave de idempotência. Reenviar não duplica.
 //
 // Recusa terminal: se o servidor rejeita a picagem em definitivo (cache obsoleta
-// -> trabalhador desativado; bilhete usado/expirado), o item passa a 'recusado'
-// e DEIXA de ser tentado — mas NÃO é apagado: fica visível (contarRecusados) para
-// o gestor agir. Uma picagem nunca é silenciosamente perdida (doc 07 §1).
+// -> trabalhador desativado; bilhete usado/expirado; sequência inválida), o item
+// passa a 'recusado' e DEIXA de ser tentado. A recusa é depois REPORTADA ao
+// servidor (qualquer origem, online ou offline) via reportar_picagem_recusada —
+// o admin passa a ser o dono — e só então a linha local é apagada (o badge
+// limpa-se). Uma picagem nunca é silenciosamente perdida (doc 07 §1).
 //
 // Foto: base64 na própria linha; sai com a linha ao concluir. Sem ficheiros órfãos.
 //
@@ -105,10 +107,13 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
   return dbPromise;
 }
 
-// Enfileira uma picagem ONLINE (com bilhete).
+// Enfileira uma picagem ONLINE (com bilhete). trabalhador_id/codigo_pessoal
+// vêm da iniciar_picagem e permitem reportar uma eventual recusa terminal.
 export async function enfileirarOnline(item: {
   id: string;
   autorizacao_id: string;
+  trabalhador_id: string;
+  codigo_pessoal: string;
   tipo: string;
   momento: string;
   foto_b64: string;
@@ -116,11 +121,13 @@ export async function enfileirarOnline(item: {
   const db = await getDb();
   await db.runAsync(
     `insert or ignore into outbox_item
-       (id, origem, autorizacao_id, trabalhador_id, tipo, momento, foto_b64,
-        estado, tentativas, criado_em)
-     values (?, 'online', ?, '', ?, ?, ?, 'pendente', 0, ?)`,
+       (id, origem, autorizacao_id, trabalhador_id, codigo_pessoal, tipo, momento, foto_b64,
+        estado, tentativas, reportada, criado_em)
+     values (?, 'online', ?, ?, ?, ?, ?, ?, 'pendente', 0, 0, ?)`,
     item.id,
     item.autorizacao_id,
+    item.trabalhador_id,
+    item.codigo_pessoal,
     item.tipo,
     item.momento,
     item.foto_b64,
@@ -322,8 +329,8 @@ export async function drenar(): Promise<void> {
       }
     }
 
-    // PASSO 3 — reportar recusas offline ao servidor (para o admin as ver).
-    // Tentado até passar (reportada=0); não engole se a rede falhar agora.
+    // PASSO 3 — reportar recusas terminais ao servidor (para o admin as ver),
+    // qualquer origem. Tentado até passar; não engole se a rede falhar agora.
     await reportarRecusas(db);
   } finally {
     aDrenar = false;
@@ -331,9 +338,11 @@ export async function drenar(): Promise<void> {
 }
 
 async function reportarRecusas(db: SQLite.SQLiteDatabase): Promise<void> {
+  // Ambas as origens: uma recusa terminal ONLINE (bilhete usado/expirado,
+  // sequência inválida) também precisa de chegar ao admin — antes, ficava
+  // presa no kiosk para sempre (badge perpétuo, invisível para o gestor).
   const recusas = await db.getAllAsync<Linha>(
-    `select * from outbox_item
-      where estado='recusado' and origem='offline' and reportada=0`,
+    `select * from outbox_item where estado='recusado' and reportada=0`,
   );
   for (const r of recusas) {
     const { error } = await supabase.rpc("reportar_picagem_recusada", {

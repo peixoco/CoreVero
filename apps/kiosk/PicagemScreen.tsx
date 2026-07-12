@@ -327,6 +327,8 @@ export default function PicagemScreen({ lojaNome }: { lojaNome?: string }) {
         await enfileirarOnline({
           id: chave,
           autorizacao_id: autorizacaoId!,
+          trabalhador_id: trabalhadorId ?? "",
+          codigo_pessoal: codigo.trim(),
           tipo,
           momento,
           foto_b64: base64,
