@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { ErroAviso, mensagemErro } from "@/lib/erros";
 import { paredeParaUTC } from "@corevero/core";
 
 const TIPO_LABEL: Record<string, string> = {
@@ -77,7 +78,10 @@ export default function Colaborador() {
   useEffect(() => {
     if (!id) return;
     supabase.from("trabalhador").select("nome").eq("id", id).maybeSingle()
-      .then(({ data }) => setNome((data as { nome: string } | null)?.nome ?? "—"));
+      .then(({ data, error }) => {
+        if (error) return setErro(mensagemErro(error));
+        setNome((data as { nome: string } | null)?.nome ?? "—");
+      });
   }, [id]);
 
   const carregarDia = useCallback(() => {
@@ -95,7 +99,7 @@ export default function Colaborador() {
       .lte("momento_dispositivo", fim.toISOString())
       .order("momento_dispositivo")
       .then(({ data, error }) => {
-        if (error) return setErro(error.message);
+        if (error) return setErro(mensagemErro(error));
         setPicagens(((data as Picagem[]) ?? []).filter((p) => diaLisboa(p.momento_dispositivo) === dia));
       });
 
@@ -105,7 +109,10 @@ export default function Colaborador() {
       .eq("trabalhador_id", id)
       .eq("dia", dia)
       .maybeSingle()
-      .then(({ data }) => setHoras(data as Horas));
+      .then(({ data, error }) => {
+        if (error) return setErro(mensagemErro(error));
+        setHoras(data as Horas);
+      });
   }, [id, dia]);
 
   useEffect(() => { carregarDia(); }, [carregarDia]);
@@ -118,7 +125,7 @@ export default function Colaborador() {
     setBusy(true);
     const { error } = await supabase.rpc("anular_picagem", { p_picagem_id: p.picagem_id, p_motivo: motivo });
     setBusy(false);
-    if (error) return setErro(error.message);
+    if (error) return setErro(mensagemErro(error));
     carregarDia();
   }
 
@@ -132,7 +139,7 @@ export default function Colaborador() {
       p_motivo: "correção manual",
     });
     setBusy(false);
-    if (error) return setErro(error.message);
+    if (error) return setErro(mensagemErro(error));
     carregarDia();
   }
 
@@ -149,7 +156,7 @@ export default function Colaborador() {
     setBusy(true);
     const { data, error } = await supabase.rpc("gerar_novo_pin", { p_trabalhador_id: id });
     setBusy(false);
-    if (error) return setErro(error.message);
+    if (error) return setErro(mensagemErro(error));
     setNovoPin(data as string);
   }
 
@@ -170,6 +177,8 @@ export default function Colaborador() {
       </Link>
       <h1 className="text-2xl font-bold mt-2 mb-4">{nome ?? "…"}</h1>
 
+      <ErroAviso erro={erro} className="mb-4" />
+
       <div className="flex gap-1 border-b border-black/10 mb-6">
         {TABS.map((t, i) => (
           <button
@@ -188,8 +197,6 @@ export default function Colaborador() {
         <InformacaoTab id={id} onNome={setNome} />
       ) : tab === 1 ? (
         <div>
-          {erro && <p className="text-red-600 mb-4">{erro}</p>}
-
           <div className="bg-white rounded-xl border border-black/5 shadow-sm p-4 mb-6">
             <p className="text-sm font-medium text-tinta mb-1">PIN de picagem</p>
             <p className="text-xs text-cinza mb-3">
@@ -387,7 +394,7 @@ function InformacaoTab({ id, onNome }: { id: string; onNome: (n: string) => void
         .eq("id", id)
         .single();
       if (e1 || !t) {
-        setErro(e1?.message ?? "colaborador não encontrado");
+        setErro(e1 ? mensagemErro(e1) : "colaborador não encontrado");
         setPronto(true);
         return;
       }
@@ -396,7 +403,7 @@ function InformacaoTab({ id, onNome }: { id: string; onNome: (n: string) => void
         .select("nome_completo, data_nascimento, posicao, contrato_inicio, contrato_fim, telefone, email")
         .eq("trabalhador_id", id)
         .maybeSingle();
-      if (e2) setErro(e2.message);
+      if (e2) setErro(mensagemErro(e2));
       setAtivo(t.ativo);
       setForm({
         nome: t.nome ?? "",
@@ -437,7 +444,7 @@ function InformacaoTab({ id, onNome }: { id: string; onNome: (n: string) => void
       p_email: nn(form.email),
     });
     setAGravar(false);
-    if (error) return setErro(error.message);
+    if (error) return setErro(mensagemErro(error));
     onNome(form.nome);
     setMsg("Guardado.");
   }
@@ -449,7 +456,7 @@ function InformacaoTab({ id, onNome }: { id: string; onNome: (n: string) => void
       .from("trabalhador")
       .update({ ativo: !ativo })
       .eq("id", id);
-    if (error) return setErro(error.message);
+    if (error) return setErro(mensagemErro(error));
     setAtivo(!ativo);
     setMsg(!ativo ? "Reativado." : "Desativado.");
   }
@@ -564,7 +571,7 @@ function InformacaoTab({ id, onNome }: { id: string; onNome: (n: string) => void
             className={`${inp} mt-1`}
           />
         </label>
-        {erro && <p className="text-red-600 text-sm">{erro}</p>}
+        <ErroAviso erro={erro} />
         {msg && <p className="text-teal text-sm">{msg}</p>}
         <button
           type="submit"

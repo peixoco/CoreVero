@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { mensagemErro } from "@/lib/erros";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -10,6 +11,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [aEntrar, setAEntrar] = useState(false);
+
+  // Motivo passado pela guarda de sessão do painel (?erro=...). Lido de
+  // window.location para não exigir a boundary de Suspense do useSearchParams.
+  useEffect(() => {
+    const motivo = new URLSearchParams(window.location.search).get("erro");
+    if (motivo) setErro(motivo);
+  }, []);
 
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
@@ -20,7 +28,7 @@ export default function LoginPage() {
       password,
     });
     setAEntrar(false);
-    if (error) return setErro(error.message);
+    if (error) return setErro(mensagemErro(error));
     router.push("/");
   }
 

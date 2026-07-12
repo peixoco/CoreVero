@@ -2,39 +2,53 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { ErroAviso, mensagemErro } from "@/lib/erros";
 
 export default function Inicio() {
   const [colaboradores, setColaboradores] = useState<number | null>(null);
   const [picagensHoje, setPicagensHoje] = useState<number | null>(null);
   const [recusas, setRecusas] = useState<number | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
     const inicioHoje = new Date();
     inicioHoje.setHours(0, 0, 0, 0);
 
+    // Em erro, o KPI fica em "…" (nunca um 0 falso) e o erro é mostrado.
     supabase
       .from("trabalhador")
       .select("id", { count: "exact", head: true })
       .eq("ativo", true)
-      .then(({ count }) => setColaboradores(count ?? 0));
+      .then(({ count, error }) => {
+        if (error) return setErro(mensagemErro(error));
+        setColaboradores(count ?? 0);
+      });
 
     supabase
       .from("vista_picagem")
       .select("picagem_id", { count: "exact", head: true })
       .gte("momento_dispositivo", inicioHoje.toISOString())
-      .then(({ count }) => setPicagensHoje(count ?? 0));
+      .then(({ count, error }) => {
+        if (error) return setErro(mensagemErro(error));
+        setPicagensHoje(count ?? 0);
+      });
 
     supabase
       .from("picagem_recusada")
       .select("id", { count: "exact", head: true })
       .eq("estado", "pendente")
-      .then(({ count }) => setRecusas(count ?? 0));
+      .then(({ count, error }) => {
+        if (error) return setErro(mensagemErro(error));
+        setRecusas(count ?? 0);
+      });
   }, []);
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-1">Início</h1>
       <p className="text-cinza mb-6">Visão geral do dia.</p>
+
+      <ErroAviso erro={erro} className="mb-4" />
 
       {/* KPIs reais (dados que já existem hoje) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">

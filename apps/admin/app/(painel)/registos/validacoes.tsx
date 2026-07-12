@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
+import { ErroAviso, mensagemErro } from "@/lib/erros";
 
 type Trab = { id: string; nome: string; codigo_pessoal: string };
 type LinhaFolha = {
@@ -87,7 +88,10 @@ export default function Validacoes() {
 
   useEffect(() => {
     supabase.from("trabalhador").select("id, nome, codigo_pessoal").eq("ativo", true).order("nome")
-      .then(({ data }) => setTrabs((data as Trab[]) ?? []));
+      .then(({ data, error }) => {
+        if (error) return setErro(mensagemErro(error));
+        setTrabs((data as Trab[]) ?? []);
+      });
   }, []);
 
   async function exportar() {
@@ -105,7 +109,7 @@ export default function Validacoes() {
 
     const { data, error } = await q;
     setBusy(false);
-    if (error) return setErro(error.message);
+    if (error) return setErro(mensagemErro(error));
 
     // agrupar por trabalhador + dia (primeira de cada tipo)
     const grupos: Record<string, Partial<LinhaFolha>> = {};
@@ -159,7 +163,7 @@ export default function Validacoes() {
       setLinhas(ls);
       const { data, error } = await supabase.rpc("aplicar_folha", { p_linhas: ls, p_simular: true });
       setBusy(false);
-      if (error) return setErro(error.message);
+      if (error) return setErro(mensagemErro(error));
       setPreview(data as Resultado);
     } catch (ex) {
       setBusy(false);
@@ -172,7 +176,7 @@ export default function Validacoes() {
     setBusy(true);
     const { data, error } = await supabase.rpc("aplicar_folha", { p_linhas: linhas, p_simular: false });
     setBusy(false);
-    if (error) return setErro(error.message);
+    if (error) return setErro(mensagemErro(error));
     setFeito(data as Resultado);
     setPreview(null);
     setLinhas(null);
@@ -225,7 +229,7 @@ export default function Validacoes() {
         </div>
 
         {busy && <p className="text-cinza text-sm mt-4">A processar…</p>}
-        {erro && <p className="text-red-600 text-sm mt-4">{erro}</p>}
+        <ErroAviso erro={erro} className="mt-4" />
 
         {/* PRÉ-VISUALIZAÇÃO */}
         {preview && (

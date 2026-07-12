@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { mensagemErro } from "@/lib/erros";
 
 const NAV = [
   { href: "/", label: "Início" },
@@ -22,7 +23,12 @@ export default function PainelLayout({
   const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        // Falha a obter a sessão ≠ sem sessão: leva o motivo para o login.
+        router.replace(`/login?erro=${encodeURIComponent(mensagemErro(error))}`);
+        return;
+      }
       if (!data.session) {
         router.replace("/login");
         return;

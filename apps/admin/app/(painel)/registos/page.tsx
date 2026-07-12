@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
+import { ErroAviso, mensagemErro } from "@/lib/erros";
 import { paredeParaUTC } from "@corevero/core";
 import Validacoes from "./validacoes";
 
@@ -97,7 +98,7 @@ export default function Registos() {
     if (fColab !== "todos") q = q.eq("trabalhador_id", fColab);
     if (fTipo !== "todos") q = q.eq("tipo", fTipo);
     q.then(({ data, error }) => {
-      if (error) setErro(error.message);
+      if (error) setErro(mensagemErro(error));
       else setLinhas(data as Picagem[]);
     });
   }, [fColab, fTipo, fDe, fAte]);
@@ -109,8 +110,9 @@ export default function Registos() {
       .eq("estado", "pendente")
       .order("criada_em", { ascending: false })
       .limit(50)
-      .then(({ data }) => {
-        if (data) setRecusas(data as Recusa[]);
+      .then(({ data, error }) => {
+        if (error) return setErro(mensagemErro(error));
+        setRecusas((data as Recusa[]) ?? []);
       });
   }, []);
 
@@ -120,7 +122,10 @@ export default function Registos() {
       .select("id, nome, codigo_pessoal")
       .eq("ativo", true)
       .order("nome")
-      .then(({ data }) => setTrabs((data as Trab[]) ?? []));
+      .then(({ data, error }) => {
+        if (error) return setErro(mensagemErro(error));
+        setTrabs((data as Trab[]) ?? []);
+      });
   }, []);
 
   useEffect(() => {
@@ -133,7 +138,7 @@ export default function Registos() {
       .from("picagens")
       .createSignedUrl(path, 60);
     if (error) {
-      alert("Não foi possível abrir a foto: " + error.message);
+      alert("Não foi possível abrir a foto: " + mensagemErro(error));
       return;
     }
     window.open(data.signedUrl, "_blank");
@@ -149,7 +154,7 @@ export default function Registos() {
     setAProcessar(r.id);
     const { error } = await supabase.rpc("aceitar_recusa", { p_recusa_id: r.id });
     setAProcessar(null);
-    if (error) return setErro(error.message);
+    if (error) return setErro(mensagemErro(error));
     carregarRecusas();
     carregarPicagens();
   }
@@ -159,7 +164,7 @@ export default function Registos() {
     setAProcessar(r.id);
     const { error } = await supabase.rpc("descartar_recusa", { p_recusa_id: r.id });
     setAProcessar(null);
-    if (error) return setErro(error.message);
+    if (error) return setErro(mensagemErro(error));
     carregarRecusas();
   }
 
@@ -189,7 +194,7 @@ export default function Registos() {
         ))}
       </div>
 
-      {erro && <p className="text-red-600 mb-4">{erro}</p>}
+      <ErroAviso erro={erro} className="mb-4" />
 
       {tab === "picagens" && (
         <>
@@ -492,7 +497,7 @@ function NovaPicagemModal({
       p_motivo: "manual",
     });
     setBusy(false);
-    if (error) return setErro(error.message);
+    if (error) return setErro(mensagemErro(error));
     onDone();
   }
 
@@ -542,7 +547,7 @@ function NovaPicagemModal({
           />
         </div>
 
-        {erro && <p className="text-sm text-red-600">{erro}</p>}
+        <ErroAviso erro={erro} />
 
         <div className="flex justify-end gap-2 pt-2">
           <button
@@ -647,7 +652,7 @@ function BlocoModal({
       p_simular: simular,
     });
     setBusy(false);
-    if (error) return setErro(error.message);
+    if (error) return setErro(mensagemErro(error));
     if (simular) setPreview(data as ResBloco);
     else {
       setFeito(data as ResBloco);
@@ -790,7 +795,7 @@ function BlocoModal({
             </button>
           </div>
 
-          {erro && <p className="text-sm text-red-600">{erro}</p>}
+          <ErroAviso erro={erro} />
 
           {/* Pré-visualização */}
           {preview && <RelatorioBloco res={preview} />}
