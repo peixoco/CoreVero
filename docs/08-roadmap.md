@@ -110,7 +110,7 @@ Regra: a **casca** de navegação (renomear, submenu, desduplicar o Início) é 
 ## 6. Decisões fechadas a respeitar (NÃO reabrir)
 
 - **NIF/NISS/IBAN** → tabela cifrada separada, role de pagamentos, nunca no kiosk. Não são campos do perfil. *[doc 06]*
-- **PIN nunca é lido** — o admin define/gera, nunca vê. A tab "PIN" mostra "gerar novo", não o PIN. *[Certain]*
+- **PIN nunca recuperável após criação** *(emenda R0, 2026-07-12: antes dizia "nunca visto")* — o admin gera, o PIN é mostrado **uma única vez** (mascarado por defeito, com revelar explícito) para ser comunicado ao colaborador, e nunca mais é recuperável: a coluna `pin` não é legível nem escrevível por nenhum cliente (só as RPCs DEFINER `criar_colaborador`/`gerar_novo_pin`). A tab "PIN" mostra "Gerar novo PIN". *[Certain]*
 - **Kiosk confinado** a picagem + checklist; tudo o resto é admin. *[doc 06 §3]*
 - **Foto = atribuição por revisão humana, não biometria.** Nunca matching facial automático. *[doc 00 §6]*
 - **Captura imune à rede** = feita (escrita + autorização offline). *[doc 07]*
