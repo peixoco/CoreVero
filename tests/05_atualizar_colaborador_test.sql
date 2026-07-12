@@ -10,6 +10,9 @@ insert into utilizador_app (id, empresa_id, ambito, loja_id) values
 \set ADMIN_A '{"app_metadata":{"empresa_id":"11111111-1111-1111-1111-111111111111","tipo":"admin","loja_id":null}}'
 \set KIOSK_CC '{"app_metadata":{"empresa_id":"11111111-1111-1111-1111-111111111111","tipo":"kiosk","loja_id":"a1100000-0000-0000-0000-000000000001"}}'
 
+-- Pré-condição do TESTE 1 (Ana sem detalhe): o teste 03 pode tê-lo criado.
+delete from trabalhador_detalhe where trabalhador_id = 'a1200000-0000-0000-0000-000000000001';
+
 -- TESTE 1 — editar um colaborador de SEED (sem detalhe) -> upsert cria o detalhe
 set request.jwt.claims = :'ADMIN_A';
 set role authenticated;

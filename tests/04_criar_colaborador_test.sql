@@ -89,6 +89,8 @@ declare v_novo text;
 begin
   v_novo := public.gerar_novo_pin('a1200000-0000-0000-0000-000000000001');
   if v_novo !~ '^[0-9]{4}$' then raise exception 'novo pin inválido'; end if;
+  -- a leitura do pin está revogada aos clientes; verificar como superuser
+  reset role;
   if (select pin from public.trabalhador where id='a1200000-0000-0000-0000-000000000001') <> v_novo
     then raise exception 'pin não atualizou'; end if;
   raise notice 'TESTE 4 (gerar_novo_pin: %): OK', v_novo;
