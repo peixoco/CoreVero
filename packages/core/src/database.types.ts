@@ -966,6 +966,7 @@ export type Database = {
           anulada: boolean | null
           codigo_pessoal: string | null
           correcao_manual: boolean | null
+          desvio_segundos: number | null
           empresa_id: string | null
           foto_url: string | null
           loja_id: string | null
