@@ -7,36 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       acao_corretiva: {
@@ -145,6 +115,7 @@ export type Database = {
       }
       checklist_instancia: {
         Row: {
+          concluida_em: string | null
           created_at: string
           due_at: string | null
           empresa_id: string
@@ -152,10 +123,11 @@ export type Database = {
           id: string
           loja_id: string
           template_id: string
-          template_versao: number
-          verificacao_id: string
+          verificacao_id: string | null
+          versao_id: string
         }
         Insert: {
+          concluida_em?: string | null
           created_at?: string
           due_at?: string | null
           empresa_id: string
@@ -163,10 +135,11 @@ export type Database = {
           id?: string
           loja_id: string
           template_id: string
-          template_versao: number
-          verificacao_id: string
+          verificacao_id?: string | null
+          versao_id: string
         }
         Update: {
+          concluida_em?: string | null
           created_at?: string
           due_at?: string | null
           empresa_id?: string
@@ -174,8 +147,8 @@ export type Database = {
           id?: string
           loja_id?: string
           template_id?: string
-          template_versao?: number
-          verificacao_id?: string
+          verificacao_id?: string | null
+          versao_id?: string
         }
         Relationships: [
           {
@@ -206,44 +179,66 @@ export type Database = {
             referencedRelation: "verificacao"
             referencedColumns: ["empresa_id", "id"]
           },
+          {
+            foreignKeyName: "checklist_instancia_empresa_id_versao_id_fkey"
+            columns: ["empresa_id", "versao_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_template_versao"
+            referencedColumns: ["empresa_id", "id"]
+          },
         ]
       }
       checklist_item: {
         Row: {
+          booleano_conforme: boolean | null
           created_at: string
           empresa_id: string
           id: string
+          limite_fonte: string | null
+          limite_legal_id: string | null
           limite_max: number | null
           limite_min: number | null
+          limite_referencia: string | null
+          obrigatorio: boolean
           ordem: number
-          template_id: string
           texto: string
           tipo_resposta: string
           unidade: string | null
+          versao_id: string
         }
         Insert: {
+          booleano_conforme?: boolean | null
           created_at?: string
           empresa_id: string
           id?: string
+          limite_fonte?: string | null
+          limite_legal_id?: string | null
           limite_max?: number | null
           limite_min?: number | null
+          limite_referencia?: string | null
+          obrigatorio?: boolean
           ordem?: number
-          template_id: string
           texto: string
           tipo_resposta: string
           unidade?: string | null
+          versao_id: string
         }
         Update: {
+          booleano_conforme?: boolean | null
           created_at?: string
           empresa_id?: string
           id?: string
+          limite_fonte?: string | null
+          limite_legal_id?: string | null
           limite_max?: number | null
           limite_min?: number | null
+          limite_referencia?: string | null
+          obrigatorio?: boolean
           ordem?: number
-          template_id?: string
           texto?: string
           tipo_resposta?: string
           unidade?: string | null
+          versao_id?: string
         }
         Relationships: [
           {
@@ -254,37 +249,47 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "checklist_item_empresa_id_template_id_fkey"
-            columns: ["empresa_id", "template_id"]
+            foreignKeyName: "checklist_item_empresa_id_versao_id_fkey"
+            columns: ["empresa_id", "versao_id"]
             isOneToOne: false
-            referencedRelation: "checklist_template"
+            referencedRelation: "checklist_template_versao"
             referencedColumns: ["empresa_id", "id"]
+          },
+          {
+            foreignKeyName: "checklist_item_limite_legal_id_fkey"
+            columns: ["limite_legal_id"]
+            isOneToOne: false
+            referencedRelation: "limite_legal"
+            referencedColumns: ["id"]
           },
         ]
       }
       checklist_resposta: {
         Row: {
-          conforme: boolean | null
+          conforme: boolean
           created_at: string
           empresa_id: string
+          foto_url: string | null
           id: string
           instancia_id: string
           item_id: string
           valor: string | null
         }
         Insert: {
-          conforme?: boolean | null
+          conforme: boolean
           created_at?: string
           empresa_id: string
+          foto_url?: string | null
           id?: string
           instancia_id: string
           item_id: string
           valor?: string | null
         }
         Update: {
-          conforme?: boolean | null
+          conforme?: boolean
           created_at?: string
           empresa_id?: string
+          foto_url?: string | null
           id?: string
           instancia_id?: string
           item_id?: string
@@ -319,31 +324,25 @@ export type Database = {
           ativo: boolean
           created_at: string
           empresa_id: string
-          frequencia: string
           id: string
           loja_id: string | null
           nome: string
-          versao: number
         }
         Insert: {
           ativo?: boolean
           created_at?: string
           empresa_id: string
-          frequencia: string
           id?: string
           loja_id?: string | null
           nome: string
-          versao?: number
         }
         Update: {
           ativo?: boolean
           created_at?: string
           empresa_id?: string
-          frequencia?: string
           id?: string
           loja_id?: string | null
           nome?: string
-          versao?: number
         }
         Relationships: [
           {
@@ -362,45 +361,50 @@ export type Database = {
           },
         ]
       }
-      checklist_template_loja: {
+      checklist_template_versao: {
         Row: {
           created_at: string
           empresa_id: string
+          estado: string
+          frequencia_config: Json
+          frequencia_tipo: string
           id: string
-          loja_id: string
+          numero: number
+          publicada_em: string | null
           template_id: string
         }
         Insert: {
           created_at?: string
           empresa_id: string
+          estado?: string
+          frequencia_config?: Json
+          frequencia_tipo: string
           id?: string
-          loja_id: string
+          numero: number
+          publicada_em?: string | null
           template_id: string
         }
         Update: {
           created_at?: string
           empresa_id?: string
+          estado?: string
+          frequencia_config?: Json
+          frequencia_tipo?: string
           id?: string
-          loja_id?: string
+          numero?: number
+          publicada_em?: string | null
           template_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "checklist_template_loja_empresa_id_fkey"
+            foreignKeyName: "checklist_template_versao_empresa_id_fkey"
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresa"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "checklist_template_loja_empresa_id_loja_id_fkey"
-            columns: ["empresa_id", "loja_id"]
-            isOneToOne: false
-            referencedRelation: "loja"
-            referencedColumns: ["empresa_id", "id"]
-          },
-          {
-            foreignKeyName: "checklist_template_loja_empresa_id_template_id_fkey"
+            foreignKeyName: "checklist_template_versao_empresa_id_template_id_fkey"
             columns: ["empresa_id", "template_id"]
             isOneToOne: false
             referencedRelation: "checklist_template"
@@ -416,7 +420,6 @@ export type Database = {
           lojas_licenciadas: number
           nome: string
           plano: string | null
-          retencao_foto_dias: number
         }
         Insert: {
           colaboradores_licenciados?: number
@@ -425,7 +428,6 @@ export type Database = {
           lojas_licenciadas?: number
           nome: string
           plano?: string | null
-          retencao_foto_dias?: number
         }
         Update: {
           colaboradores_licenciados?: number
@@ -434,7 +436,6 @@ export type Database = {
           lojas_licenciadas?: number
           nome?: string
           plano?: string | null
-          retencao_foto_dias?: number
         }
         Relationships: []
       }
@@ -488,6 +489,39 @@ export type Database = {
             referencedColumns: ["empresa_id", "id"]
           },
         ]
+      }
+      limite_legal: {
+        Row: {
+          controlo: string
+          created_at: string
+          descricao: string
+          id: string
+          limite_max: number | null
+          limite_min: number | null
+          norma: string
+          unidade: string
+        }
+        Insert: {
+          controlo: string
+          created_at?: string
+          descricao: string
+          id?: string
+          limite_max?: number | null
+          limite_min?: number | null
+          norma: string
+          unidade: string
+        }
+        Update: {
+          controlo?: string
+          created_at?: string
+          descricao?: string
+          id?: string
+          limite_max?: number | null
+          limite_min?: number | null
+          norma?: string
+          unidade?: string
+        }
+        Relationships: []
       }
       loja: {
         Row: {
@@ -1055,6 +1089,7 @@ export type Database = {
           trabalhador_id: string
         }[]
       }
+      criar_rascunho_de: { Args: { p_versao_id: string }; Returns: Json }
       descartar_recusa: { Args: { p_recusa_id: string }; Returns: undefined }
       empresa_atual: { Args: never; Returns: string }
       gerar_novo_pin: { Args: { p_trabalhador_id: string }; Returns: string }
@@ -1066,7 +1101,6 @@ export type Database = {
       is_kiosk: { Args: never; Returns: boolean }
       jwt_app_meta: { Args: never; Returns: Json }
       kiosk_ativo: { Args: never; Returns: boolean }
-      limpar_autorizacoes: { Args: never; Returns: number }
       loja_atual: { Args: never; Returns: string }
       obter_cache_pins: {
         Args: never
@@ -1079,7 +1113,7 @@ export type Database = {
           ultimo_tipo: string
         }[]
       }
-      purgar_fotos_expiradas: { Args: never; Returns: number }
+      publicar_versao: { Args: { p_versao_id: string }; Returns: Json }
       reativar_kiosk: { Args: { p_kiosk_id: string }; Returns: undefined }
       registar_chave_kiosk: {
         Args: { p_chave_hex: string }
@@ -1264,9 +1298,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },
