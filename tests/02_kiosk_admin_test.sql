@@ -46,7 +46,9 @@ begin
   -- pode ler o necessário
   if (select count(*) from loja)               <> 1 then raise exception 'kiosk: devia ver 1 loja (a sua)';     end if;
   if (select count(*) from trabalhador)        <> 2 then raise exception 'kiosk: devia ver 2 trabalhadores';    end if;
-  if (select count(*) from checklist_template) <> 1 then raise exception 'kiosk: devia ver 1 template ativo';   end if;
+  -- checklists: o kiosk NÃO tem policy no R2a — a leitura de templates
+  -- publicados entra no R2b, com o fluxo de preenchimento
+  if (select count(*) from checklist_template) <> 0 then raise exception 'kiosk: não devia ver templates antes do R2b'; end if;
 
   -- a loja visível é mesmo a sua
   if (select id from loja) <> 'a1100000-0000-0000-0000-000000000001'

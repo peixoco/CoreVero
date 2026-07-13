@@ -45,9 +45,13 @@ begin
   if (select count(*) from trabalhador_loja)   <> 1 then raise exception 'A/trabalhador_loja: esperado 1';   end if;
   if (select count(*) from verificacao)        <> 1 then raise exception 'A/verificacao: esperado 1';        end if;
   if (select count(*) from picagem)            <> 1 then raise exception 'A/picagem: esperado 1';            end if;
-  if (select count(*) from checklist_template) <> 1 then raise exception 'A/checklist_template: esperado 1'; end if;
-  if (select count(*) from checklist_item)     <> 2 then raise exception 'A/checklist_item: esperado 2';     end if;
-  if (select count(*) from utilizador_app)     <> 1 then raise exception 'A/utilizador_app: esperado 1';     end if;
+  if (select count(*) from checklist_template)        <> 1 then raise exception 'A/checklist_template: esperado 1';        end if;
+  if (select count(*) from checklist_template_versao) <> 1 then raise exception 'A/checklist_template_versao: esperado 1'; end if;
+  if (select count(*) from checklist_item)            <> 2 then raise exception 'A/checklist_item: esperado 2';            end if;
+  if (select count(*) from utilizador_app)            <> 1 then raise exception 'A/utilizador_app: esperado 1';            end if;
+
+  -- limite_legal é GLOBAL (sem empresa_id): todos os tenants leem as mesmas linhas
+  if (select count(*) from limite_legal) <> 2 then raise exception 'A/limite_legal: esperado 2 (tabela global)'; end if;
 
   -- ZERO linhas da B, em todas as tabelas (a fuga clássica)
   if exists (select 1 from empresa            where id         = '22222222-2222-2222-2222-222222222222') then raise exception 'FUGA: A vê empresa B';            end if;
@@ -55,8 +59,9 @@ begin
   if exists (select 1 from trabalhador        where empresa_id = '22222222-2222-2222-2222-222222222222') then raise exception 'FUGA: A vê trabalhador de B';     end if;
   if exists (select 1 from verificacao        where empresa_id = '22222222-2222-2222-2222-222222222222') then raise exception 'FUGA: A vê verificacao de B';     end if;
   if exists (select 1 from picagem            where empresa_id = '22222222-2222-2222-2222-222222222222') then raise exception 'FUGA: A vê picagem de B';         end if;
-  if exists (select 1 from checklist_template where empresa_id = '22222222-2222-2222-2222-222222222222') then raise exception 'FUGA: A vê checklist_template B';  end if;
-  if exists (select 1 from checklist_item     where empresa_id = '22222222-2222-2222-2222-222222222222') then raise exception 'FUGA: A vê checklist_item de B';   end if;
+  if exists (select 1 from checklist_template        where empresa_id = '22222222-2222-2222-2222-222222222222') then raise exception 'FUGA: A vê checklist_template B';        end if;
+  if exists (select 1 from checklist_template_versao where empresa_id = '22222222-2222-2222-2222-222222222222') then raise exception 'FUGA: A vê checklist_template_versao B'; end if;
+  if exists (select 1 from checklist_item            where empresa_id = '22222222-2222-2222-2222-222222222222') then raise exception 'FUGA: A vê checklist_item de B';         end if;
   if exists (select 1 from utilizador_app     where empresa_id = '22222222-2222-2222-2222-222222222222') then raise exception 'FUGA: A vê utilizador_app de B';   end if;
 
   -- acesso direto por id conhecido de B -> 0 linhas

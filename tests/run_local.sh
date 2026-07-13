@@ -50,7 +50,7 @@ echo "== seed"
 
 echo "== testes"
 FALHAS=0
-for t in tests/0*_test.sql; do
+for t in tests/[0-9]*_test.sql; do
   echo "-- $(basename "$t")"
   if ! "${PSQL[@]}" -f "$t"; then
     FALHAS=$((FALHAS + 1))

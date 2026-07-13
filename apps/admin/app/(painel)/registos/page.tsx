@@ -408,7 +408,7 @@ export default function Registos() {
       {tab === "checklists" && (
         <Placeholder
           titulo="Checklists HACCP"
-          desc="O módulo de monitorização HACCP (construtor de templates + motor de conformidade) entra aqui. Frente B do roadmap."
+          desc="A gestão de templates vive agora na secção Checklists. Os registos de preenchimento (instâncias e conformidade) entram aqui no R2b/R2c."
         />
       )}
 

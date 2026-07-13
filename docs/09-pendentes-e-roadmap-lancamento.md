@@ -1,6 +1,6 @@
-# 09 — Pendentes e Roadmap de Lançamento (v3.1, R0 e R1 fechados)
+# 09 — Pendentes e Roadmap de Lançamento (v3.2, R0/R1/R2a fechados)
 
-> **Substitui a v2.** R0 executado de ponta a ponta em 2026-07-12 (7 commits, detalhe em `docs/R0-notas.md`), com verificação independente na BD real (`xghfsudvpsgqkslobttj`) por consulta read-only. R1 fechado no mesmo dia (detalhe em `docs/R1-notas.md`). Relacionados: `08-roadmap.md`, `06-jurisdicao-rh.md`, `10-visao-potencial-plataforma.md`, `docs/09-levantamento-*.md`.
+> **Substitui a v2.** R0 executado de ponta a ponta em 2026-07-12 (7 commits, detalhe em `docs/R0-notas.md`), com verificação independente na BD real (`xghfsudvpsgqkslobttj`) por consulta read-only. R1 fechado no mesmo dia (detalhe em `docs/R1-notas.md`). R2a fechado em 2026-07-13 (detalhe em `docs/R2a-notas.md`). Relacionados: `08-roadmap.md`, `06-jurisdicao-rh.md`, `10-visao-potencial-plataforma.md`, `13-desenho-r2-haccp.md`, `docs/09-levantamento-*.md`.
 
 ---
 
@@ -35,8 +35,13 @@
 ### ~~R1 — Fecho da Frente A (S)~~ ✅ Fechado 2026-07-12
 `vista_picagem.desvio_segundos` (migração `20260712160000`, verificada na BD real) + badge informativo no admin acima de 300 s (`LIMIAR_DESVIO_SEGUNDOS` em `packages/core`; passa a configuração por empresa no R3) + teste do DoD `tests/09_dod_frente_a_test.sql` (mês sintético: pausas descontadas, dois turnos, anulada + correção, desvio injetado de 420 s). Detalhe e divergências em `docs/R1-notas.md`.
 
-### R2 — Frente B: HACCP (XL) ← **atual**
+### R2 — Frente B: HACCP (XL) — faseado pelo doc 13
 Pela ordem fechada: schema `checklist_*` + proveniência de limites → construtor de templates → motor de conformidade + ação corretiva forçada → preenchimento no kiosk → notificações (Resend) → agendamento + `em_falta` → **Vera + RAG** por último, sobre motor estável.
+
+- ~~**R2a** — schema versionado + construtor de templates + biblioteca base~~ ✅ Fechado 2026-07-13 (`docs/R2a-notas.md`): migrações `20260713170000`–`20260713191000` verificadas na BD real; secção Checklists no admin com "Instalar biblioteca base" (7 templates do doc 04, sempre em rascunho). Divergência do doc 04 resolvida com a entrada de `docs/04-levantamento-haccp.md` no repo.
+- **R2b** — motor de conformidade + preenchimento no kiosk (online-only) + ação corretiva forçada ← **atual**
+- **R2c** — agendador (instâncias + `em_falta`) + notificações Resend + relatório do dia
+- **R2d** — Vera + RAG sobre motor estável
 
 ### R3 — Frente C: camada RH (L)
 Tabela cifrada de fiscais, bucket de documentos, aptidão/certificados com alertas, horário e férias, página do colaborador completa, 4 relógios de retenção independentes.
