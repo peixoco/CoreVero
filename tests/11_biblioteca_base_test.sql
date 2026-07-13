@@ -65,7 +65,52 @@ begin
     raise exception 'FALHA T1: esperados 2 itens ligados a limite_legal (óleo de fritura)';
   end if;
 
-  raise notice 'TESTE 1 (7 templates em rascunho, proveniência, óleo ligado à lei): OK';
+  -- nomes exatamente os do doc 04 §4 (conjunto, independente de collation)
+  if (select count(*) from checklist_template
+       where empresa_id = '33333333-3333-3333-3333-333333333333'
+         and nome = any(array['Confeção e serviço','Higiene pessoal / abertura',
+                              'Higienização','Pré-requisitos periódicos',
+                              'Receção de mercadorias','Óleo de fritura',
+                              'Temperaturas de frio'])) <> 7 then
+    raise exception 'FALHA T1: nomes dos templates não são os do doc 04 §4: %',
+      (select string_agg(nome, '; ' order by nome) from checklist_template
+        where empresa_id = '33333333-3333-3333-3333-333333333333');
+  end if;
+
+  -- pins de valores canónicos (doc 04 §2): confeção ≥ 75 °C; refrigeração 0–5 °C
+  if not exists (select 1 from checklist_item i
+       join checklist_template_versao v on v.id = i.versao_id
+       join checklist_template t on t.id = v.template_id
+      where t.nome = 'Confeção e serviço' and i.limite_min = 75
+        and t.empresa_id = '33333333-3333-3333-3333-333333333333') then
+    raise exception 'FALHA T1: falta item de confeção com limite_min = 75 (doc 04 §2 canónico)';
+  end if;
+  if not exists (select 1 from checklist_item i
+       join checklist_template_versao v on v.id = i.versao_id
+       join checklist_template t on t.id = v.template_id
+      where t.nome = 'Temperaturas de frio' and i.limite_min = 0 and i.limite_max = 5
+        and t.empresa_id = '33333333-3333-3333-3333-333333333333') then
+    raise exception 'FALHA T1: falta refrigeração 0–5 °C (doc 04 §2 canónico)';
+  end if;
+
+  -- receção: mistura de numérico (lei 853/2004, não obrigatório) + booleano obrigatório
+  if (select count(*) from checklist_item i
+       join checklist_template_versao v on v.id = i.versao_id
+       join checklist_template t on t.id = v.template_id
+      where t.nome = 'Receção de mercadorias' and i.limite_fonte = 'lei'
+        and i.tipo_resposta = 'numerico' and not i.obrigatorio
+        and t.empresa_id = '33333333-3333-3333-3333-333333333333') < 5 then
+    raise exception 'FALHA T1: receção sem os itens de origem animal (lei, não obrigatórios)';
+  end if;
+  if not exists (select 1 from checklist_item i
+       join checklist_template_versao v on v.id = i.versao_id
+       join checklist_template t on t.id = v.template_id
+      where t.nome = 'Receção de mercadorias' and i.tipo_resposta = 'booleano' and i.obrigatorio
+        and t.empresa_id = '33333333-3333-3333-3333-333333333333') then
+    raise exception 'FALHA T1: receção sem booleanos obrigatórios (§3.1)';
+  end if;
+
+  raise notice 'TESTE 1 (7 templates do §4 em rascunho, valores canónicos, óleo ligado à lei): OK';
 
   -- T2: segunda chamada não duplica
   v_res := public.instalar_templates_base();
