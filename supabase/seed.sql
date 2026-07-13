@@ -32,16 +32,26 @@ insert into verificacao (id, empresa_id, trabalhador_id, loja_id, momento_dispos
 insert into picagem (empresa_id, verificacao_id, tipo) values
   ('11111111-1111-1111-1111-111111111111', 'a1300000-0000-0000-0000-000000000001', 'entrada');
 
--- checklist (template da empresa + itens) — configurado pelo admin, não em código
-insert into checklist_template (id, empresa_id, loja_id, nome, frequencia, versao, ativo) values
+-- checklist (schema versionado do doc 13) — configurado pelo admin, não em código.
+-- A versão nasce rascunho, recebe itens e só depois é publicada (o trigger de
+-- imutabilidade bloqueia INSERT de itens em versões já publicadas).
+insert into checklist_template (id, empresa_id, loja_id, nome, ativo) values
   ('a1400000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', null,
-   'Temperaturas de frio', 'diaria_2x', 1, true);
+   'Temperaturas de frio', true);
 
-insert into checklist_item (empresa_id, template_id, ordem, texto, tipo_resposta, unidade, limite_min, limite_max) values
-  ('11111111-1111-1111-1111-111111111111', 'a1400000-0000-0000-0000-000000000001', 1,
-   'Temperatura do frigorífico 1', 'numerico', '°C', 0, 5),
-  ('11111111-1111-1111-1111-111111111111', 'a1400000-0000-0000-0000-000000000001', 2,
-   'Temperatura da arca congeladora', 'numerico', '°C', null, -18);
+insert into checklist_template_versao (id, empresa_id, template_id, numero, frequencia_tipo, frequencia_config) values
+  ('a1410000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
+   'a1400000-0000-0000-0000-000000000001', 1, 'diaria', '{"vezes_por_dia":2,"janelas":["08:00","16:00"]}');
+
+insert into checklist_item (empresa_id, versao_id, ordem, texto, tipo_resposta, unidade, limite_min, limite_max, limite_fonte, limite_referencia) values
+  ('11111111-1111-1111-1111-111111111111', 'a1410000-0000-0000-0000-000000000001', 1,
+   'Temperatura do frigorífico 1', 'numerico', '°C', 0, 5, 'plano_estabelecimento', 'Plano HACCP do estabelecimento'),
+  ('11111111-1111-1111-1111-111111111111', 'a1410000-0000-0000-0000-000000000001', 2,
+   'Temperatura da arca congeladora', 'numerico', '°C', null, -18, 'plano_estabelecimento', 'Plano HACCP do estabelecimento');
+
+update checklist_template_versao
+   set estado = 'publicada', publicada_em = now()
+ where id = 'a1410000-0000-0000-0000-000000000001';
 
 -- ============================ EMPRESA B ==============================
 -- Tenant de isolamento (só para o teste). Dados mínimos.
@@ -63,10 +73,18 @@ insert into verificacao (id, empresa_id, trabalhador_id, loja_id, momento_dispos
 insert into picagem (empresa_id, verificacao_id, tipo) values
   ('22222222-2222-2222-2222-222222222222', 'b2300000-0000-0000-0000-000000000001', 'entrada');
 
-insert into checklist_template (id, empresa_id, loja_id, nome, frequencia, versao, ativo) values
+insert into checklist_template (id, empresa_id, loja_id, nome, ativo) values
   ('b2400000-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', null,
-   'Higiene pessoal', 'diaria', 1, true);
+   'Higiene pessoal', true);
 
-insert into checklist_item (empresa_id, template_id, ordem, texto, tipo_resposta) values
-  ('22222222-2222-2222-2222-222222222222', 'b2400000-0000-0000-0000-000000000001', 1,
+insert into checklist_template_versao (id, empresa_id, template_id, numero, frequencia_tipo, frequencia_config) values
+  ('b2410000-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222',
+   'b2400000-0000-0000-0000-000000000001', 1, 'diaria', '{"vezes_por_dia":1,"janelas":["08:00"]}');
+
+insert into checklist_item (empresa_id, versao_id, ordem, texto, tipo_resposta) values
+  ('22222222-2222-2222-2222-222222222222', 'b2410000-0000-0000-0000-000000000001', 1,
    'Lavagem de mãos à entrada', 'booleano');
+
+update checklist_template_versao
+   set estado = 'publicada', publicada_em = now()
+ where id = 'b2410000-0000-0000-0000-000000000001';
