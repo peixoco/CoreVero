@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { ErroAviso, mensagemErro } from "@/lib/erros";
 
@@ -93,7 +94,7 @@ export default function Checklists() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Checklists HACCP</h1>
         <div className="flex gap-2">
           <button
@@ -111,6 +112,22 @@ export default function Checklists() {
             + Novo template
           </button>
         </div>
+      </div>
+
+      {/* Navegação entre Templates e Preenchimentos */}
+      <div className="flex gap-1 border-b border-black/10 mb-6">
+        <Link
+          href="/checklists"
+          className="px-4 py-2 text-sm font-medium border-b-2 border-teal text-tinta -mb-px transition"
+        >
+          Templates
+        </Link>
+        <Link
+          href="/checklists/preenchimentos"
+          className="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-cinza hover:text-tinta -mb-px transition"
+        >
+          Preenchimentos
+        </Link>
       </div>
 
       <ErroAviso erro={erro} className="mb-4" />

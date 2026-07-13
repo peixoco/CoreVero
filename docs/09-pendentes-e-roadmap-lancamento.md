@@ -39,8 +39,8 @@
 Pela ordem fechada: schema `checklist_*` + proveniência de limites → construtor de templates → motor de conformidade + ação corretiva forçada → preenchimento no kiosk → notificações (Resend) → agendamento + `em_falta` → **Vera + RAG** por último, sobre motor estável.
 
 - ~~**R2a** — schema versionado + construtor de templates + biblioteca base~~ ✅ Fechado 2026-07-13 (`docs/R2a-notas.md`): migrações `20260713170000`–`20260713191000` verificadas na BD real; secção Checklists no admin com "Instalar biblioteca base" (7 templates do doc 04, sempre em rascunho). Divergência do doc 04 resolvida com a entrada de `docs/04-levantamento-haccp.md` no repo.
-- **R2b** — motor de conformidade + preenchimento no kiosk (online-only) + ação corretiva forçada ← **atual**
-- **R2c** — agendador (instâncias + `em_falta`) + notificações Resend + relatório do dia
+- ~~**R2b** — motor de conformidade + preenchimento no kiosk (online-only) + ação corretiva forçada~~ ✅ Código fechado 2026-07-13 (`docs/R2b-notas.md`): migração `20260713210000` (motor + `obter_checklists_kiosk` + `registar_checklist`), secção Checklists no kiosk, tab Preenchimentos no admin, 22 testes. Migração aplicada 2026-07-14 (push aprovado); verificação `verificador-bd` 10/10; tipos `--linked` regenerados.
+- **R2c** — agendador (instâncias + `em_falta`) + notificações Resend + relatório do dia ← **atual** (traz do R2b: idempotência do `registar_checklist`, `destinatario` das notificações, decisão do nome da RPC vs doc 13)
 - **R2d** — Vera + RAG sobre motor estável
 
 ### R3 — Frente C: camada RH (L)

@@ -11,6 +11,11 @@ import {
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import PicagemScreen from "./PicagemScreen";
+import ChecklistsScreen from "./ChecklistsScreen";
+
+// Secções disponíveis no painel do kiosk.
+// A picagem é o ecrã por omissão (invariante de uso).
+type Secao = "picagem" | "checklists";
 
 export default function App() {
   const [pronto, setPronto] = useState(false);
@@ -20,6 +25,7 @@ export default function App() {
   const [password, setPassword] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [aEntrar, setAEntrar] = useState(false);
+  const [secao, setSecao] = useState<Secao>("picagem");
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -94,7 +100,38 @@ export default function App() {
       </View>
     );
 
-  return <PicagemScreen lojaNome={lojaNome ?? undefined} />;
+  return (
+    <View style={s.raiz}>
+      {/* Conteúdo da secção activa */}
+      <View style={s.conteudo}>
+        {secao === "picagem" ? (
+          <PicagemScreen lojaNome={lojaNome ?? undefined} />
+        ) : (
+          <ChecklistsScreen lojaNome={lojaNome ?? undefined} />
+        )}
+      </View>
+
+      {/* Barra de navegação inferior */}
+      <View style={s.tabBar}>
+        <Pressable
+          style={[s.tab, secao === "picagem" && s.tabActiva]}
+          onPress={() => setSecao("picagem")}
+        >
+          <Text style={[s.tabTxt, secao === "picagem" && s.tabTxtActiva]}>
+            Picagem
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[s.tab, secao === "checklists" && s.tabActiva]}
+          onPress={() => setSecao("checklists")}
+        >
+          <Text style={[s.tabTxt, secao === "checklists" && s.tabTxtActiva]}>
+            Checklists
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
 }
 
 const s = StyleSheet.create({
@@ -131,4 +168,35 @@ const s = StyleSheet.create({
   },
   botaoTexto: { color: "#F7F6F2", fontWeight: "700" },
   erro: { color: "#c0392b", marginBottom: 8 },
+
+  // Layout principal (após login)
+  raiz: { flex: 1, backgroundColor: "#F7F6F2" },
+  conteudo: { flex: 1 },
+
+  // Barra de navegação
+  tabBar: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: "#E3E1DA",
+    backgroundColor: "#FFFFFF",
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabActiva: {
+    borderTopWidth: 2,
+    borderTopColor: "#16A37D",
+  },
+  tabTxt: {
+    fontSize: 15,
+    color: "#6B7C8C",
+    fontWeight: "600",
+  },
+  tabTxtActiva: {
+    color: "#10202E",
+    fontWeight: "700",
+  },
 });

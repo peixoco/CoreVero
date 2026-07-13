@@ -1,23 +1,21 @@
 # CoreVero — memória de projeto
 
-SaaS multi-tenant (isolamento por `empresa_id` + RLS) para restauração em Portugal: relógio de ponto autenticado (Frente A, fechada) + HACCP configurável (Frente B, atual). Fundador solo. A fonte de verdade de arquitetura, roadmap e decisões são os docs numerados em `docs/` (00–13); o estado real do código está em `docs/09-*.md` e nas notas de release (`docs/R*-notas.md`). **O repo é a fonte única dos docs** — antes de semear conteúdo a partir de um doc numerado, confirmar que é a versão em `docs/`.
+SaaS multi-tenant (isolamento por `empresa_id` + RLS) para restauração em Portugal: relógio de ponto autenticado (Frente A, fechada) + HACCP configurável (Frente B, atual — R2a fechado, R2b em curso). Fundador solo. A fonte de verdade de arquitetura, roadmap e decisões são os docs numerados em `docs/` (00–13); o estado real do código está em `docs/09-*.md` e nas notas de release (`docs/R*-notas.md`). **O repo é a fonte única dos docs** — antes de semear conteúdo a partir de um doc numerado, confirmar que é a versão em `docs/`.
 
 ## Estrutura
-
 - `apps/admin` — Next.js 16 App Router (painel do gestor)
 - `apps/kiosk` — Expo SDK 56 (tablet partilhado, sessão permanente)
 - `packages/core` — código partilhado (tipos, helpers, constantes)
 - `supabase/migrations` — migrações SQL (Postgres 17, projeto eu-west-3)
 
 ## Comandos
-
 - Gate obrigatório antes de qualquer push: `npm run build` (raiz: compila o admin + typecheck do kiosk) e a suite SQL via `tests/run_local.sh` (Docker: Postgres descartável)
 - Aplicar migrações: `npx supabase db push` (pausa para aprovação humana)
+- Verificação pós-push da BD real: **delegar ao subagente `verificador-bd`** (psql read-only via `$VERIFICA_DB_URL`) — não usar MCP
 - Regenerar tipos após alteração de schema: `npx supabase gen types typescript --linked`
 - Gestor de pacotes: **npm** (o repo tem `package-lock.json`)
 
 ## Ciclo de trabalho git (obrigatório)
-
 1. Arranque de qualquer trabalho: `git checkout main && git pull`.
 2. Criar sempre uma branch nova: `git checkout -b <release>/<descricao-curta>` (ex.: `r2b/motor-conformidade`). **Nunca trabalhar diretamente em `main`.**
 3. Commits por unidade lógica, mensagens em português europeu, prefixo da release (ex.: `R2b:`).
@@ -25,16 +23,27 @@ SaaS multi-tenant (isolamento por `empresa_id` + RLS) para restauração em Port
 5. Fecho: gates verdes → `git push -u origin <branch>` → **perguntar ao humano se cria o Pull Request**. Só com confirmação explícita na sessão: criar via `gh pr create` (base `main`) com descrição estruturada: resumo (3–5 linhas), alterações por commit, evidência dos gates (build, suite, verificações na BD), divergências/decisões a validar, e focos de revisão sugeridos.
 6. Depois de criar o PR (ou sem confirmação para o criar): **parar**. A revisão e o **merge são sempre humanos**. `git push` para `main` é proibido em qualquer circunstância.
 
-## Regras de trabalho
+## Relatório de fecho (obrigatório no fim de qualquer trabalho)
+Toda a sessão de trabalho termina com um relatório nesta estrutura exata — as secções vazias escrevem "Nada a assinalar", nunca se omitem:
+1. **Feito** — por tarefa, com o commit correspondente (sha + uma linha).
+2. **Não feito / pendente** — o que ficou por fazer e porquê; quem desbloqueia (humano, outra release, decisão).
+3. **Erros encontrados** — todos, incluindo os que corrigiste sozinho pelo caminho: o erro, a causa, a correção. Erros autocorrigidos não são invisíveis — são informação.
+4. **Divergências** — spec vs realidade (regra existente), com a decisão tomada ou a decisão que falta.
+5. **O que NÃO foi alterado** — áreas adjacentes ao trabalho que deliberadamente não tocaste (ficheiros, fluxos, schema), para a revisão saber onde não precisa de olhar e onde um efeito colateral seria suspeito.
+6. **Decisões que precisam de validação humana** — interpretações, escolhas de conteúdo, trade-offs assumidos.
+7. **Gates** — build, suite, verificações de BD: resultado com evidência de uma linha cada.
+8. **Próximo passo do humano** — o que se espera de ti a seguir (aprovar push, rever PR, decidir X).
+O mesmo relatório alimenta as `docs/R*-notas.md` e a descrição do PR — uma fonte, três destinos.
 
+## Regras de trabalho
 - Português europeu em código, comentários, commits e respostas.
 - Migrações: `supabase/migrations/YYYYMMDDHHMMSS_nome.sql`, timestamp posterior à última migração aplicada. Nunca editar uma migração já aplicada — correções são sempre migração nova (ex.: `create or replace`).
 - Ficheiros sempre completos; nunca patches parciais deixados a meio.
 - Erros nunca são engolidos: mostrar sempre o texto completo do erro, nunca só contagens (helper `lib/erros.tsx` no admin).
 - Se a especificação de uma tarefa divergir da realidade do código: parar, reportar a divergência, não improvisar.
+- Economia de contexto: resultados extensos (queries, listagens, diffs grandes) vivem nos subagentes, que devolvem só o veredicto; a thread principal não acumula despejos brutos.
 
 ## Invariantes de segurança (violação = bloqueante)
-
 1. O kiosk está confinado a picagem + preenchimento de checklists. Funções de RH/administração nunca aparecem no kiosk.
 2. `trabalhador.pin` nunca é legível por roles de cliente; escrita só via RPC SECURITY DEFINER. O PIN nunca é recuperável após criação (display-once mascarado).
 3. Toda a função SECURITY DEFINER tem `set search_path to ''` e escopa todas as queries por `empresa_id` (um definer ignora RLS).
@@ -46,11 +55,12 @@ SaaS multi-tenant (isolamento por `empresa_id` + RLS) para restauração em Port
 9. Vera e qualquer agente de AI do produto: números e limites legais só de fonte citada ou tabela de autoridade (`limite_legal` / plano do estabelecimento), nunca de memória de modelo; humano aprova sempre. O mesmo vale para conteúdo HACCP semeado por migração: só de docs canónicos, zero números de memória.
 10. Retenções legais são relógios independentes e configuráveis (6 relógios — ver doc 12, mapa consolidado); nunca um schedule único nem valores cravados.
 11. NIF/NISS/IBAN vivem apenas na tabela cifrada com role próprio; nunca expostos ao kiosk.
+12. A connection string `$VERIFICA_DB_URL` nunca aparece em output, commit ou ficheiro do repo.
 
 ## Delegação a subagentes
-
 - Exploração e pesquisa no repo (localizar ficheiros, inventários, "onde é usado X"): delega ao agente `explorador`.
 - Toda a migração SQL nova passa pelo `revisor-sql` **antes** do `supabase db push`; violações bloqueantes travam a aplicação.
+- Verificação da BD real (pós-push e contraprovas): delega ao `verificador-bd` com a lista de verificações; ele devolve a tabela ✓/✗. Nunca correr essas queries na thread principal nem via MCP.
 - Implementação de tarefas com especificação fechada (ex.: tarefas numeradas de um prompt): delega ao `executor`, uma tarefa de cada vez, com o texto completo da tarefa no prompt de delegação.
 - A thread principal reserva-se para: planeamento, decisões de arquitetura, síntese e verificação final.
 - Tarefas pequenas e pontuais (fix de poucas linhas, pergunta rápida): resolve na thread principal, sem delegar.
