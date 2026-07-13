@@ -35,7 +35,33 @@ export default function Checklists() {
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [modalAberto, setModalAberto] = useState(false);
+  const [instalando, setInstalando] = useState(false);
+  const [resultadoInstalacao, setResultadoInstalacao] = useState<string | null>(null);
   const router = useRouter();
+
+  async function instalarBiblioteca() {
+    setInstalando(true);
+    setErro(null);
+    setResultadoInstalacao(null);
+    const { data, error } = await supabase.rpc("instalar_templates_base");
+    setInstalando(false);
+    if (error) return setErro(mensagemErro(error));
+    const res = data as {
+      instalados: number;
+      templates?: string[];
+      nota?: string;
+      motivo?: string;
+    };
+    if (res.instalados > 0) {
+      setResultadoInstalacao(
+        `${res.instalados} templates instalados em rascunho: ${(res.templates ?? []).join(", ")}.` +
+          (res.nota ? ` ${res.nota}.` : ""),
+      );
+    } else {
+      setResultadoInstalacao(res.motivo ?? "Nada instalado.");
+    }
+    carregar();
+  }
 
   function carregar() {
     supabase
@@ -67,15 +93,30 @@ export default function Checklists() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Checklists HACCP</h1>
-        <button
-          onClick={() => setModalAberto(true)}
-          className="rounded-lg bg-teal text-papel px-4 py-2 font-medium hover:brightness-110 transition"
-        >
-          + Novo template
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={instalarBiblioteca}
+            disabled={instalando}
+            className="rounded-lg border border-black/15 text-tinta px-4 py-2 font-medium hover:bg-papel transition disabled:opacity-50"
+            title="Cria os 7 templates de arranque (doc 04) em rascunho — nada é publicado automaticamente"
+          >
+            {instalando ? "A instalar…" : "Instalar biblioteca base"}
+          </button>
+          <button
+            onClick={() => setModalAberto(true)}
+            className="rounded-lg bg-teal text-papel px-4 py-2 font-medium hover:brightness-110 transition"
+          >
+            + Novo template
+          </button>
+        </div>
       </div>
 
       <ErroAviso erro={erro} className="mb-4" />
+      {resultadoInstalacao && (
+        <div className="mb-4 rounded-lg border border-teal/30 bg-teal/5 text-tinta text-sm px-4 py-3 whitespace-pre-wrap">
+          {resultadoInstalacao}
+        </div>
+      )}
 
       {!templates ? (
         <p className="text-cinza">A carregar…</p>

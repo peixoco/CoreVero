@@ -1130,6 +1130,7 @@ export type Database = {
         Args: { p_codigo_pessoal: string; p_pin: string }
         Returns: Json
       }
+      instalar_templates_base: { Args: never; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
       is_kiosk: { Args: never; Returns: boolean }
       jwt_app_meta: { Args: never; Returns: Json }
