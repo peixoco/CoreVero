@@ -225,7 +225,8 @@ export default function ChecklistDetalhe() {
       supabase.rpc("empresa_atual"),
       supabase
         .from("checklist_template")
-        .select("id, nome, ativo, loja_id, loja:loja_id(nome)")
+        // FK composta: embed pelo nome da constraint (ver lista)
+        .select("id, nome, ativo, loja_id, loja:checklist_template_empresa_id_loja_id_fkey(nome)")
         .eq("id", id)
         .single(),
       supabase

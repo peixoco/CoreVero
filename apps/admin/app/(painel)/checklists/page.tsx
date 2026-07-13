@@ -67,7 +67,9 @@ export default function Checklists() {
     supabase
       .from("checklist_template")
       .select(
-        "id, nome, ativo, loja_id, loja:loja_id(nome), versoes:checklist_template_versao(id, numero, estado)",
+        // FK composta (empresa_id, loja_id) → o PostgREST não resolve o embed
+        // pelo nome da coluna; é preciso o nome da constraint
+        "id, nome, ativo, loja_id, loja:checklist_template_empresa_id_loja_id_fkey(nome), versoes:checklist_template_versao(id, numero, estado)",
       )
       .order("nome")
       .then(({ data, error }) => {
