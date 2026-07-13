@@ -58,12 +58,16 @@
 
 ## 2. Não feito / pendente
 
-- **`npx supabase db push`** — travado pelo classificador de permissões da
-  sessão (o gate de aprovação humana a funcionar). Desbloqueia: o fundador.
-  Depois do push seguem-se, por esta ordem: delegação ao `verificador-bd`
-  (prosecdef, search_path, grants incluindo anon, guards, conteúdo das 3
-  funções) e `npx supabase gen types typescript --linked` para substituir os
-  tipos provisórios.
+- ~~**`npx supabase db push`**~~ — inicialmente travado pelo classificador
+  (o gate de aprovação humana a funcionar); **aprovado pelo fundador e
+  aplicado em 2026-07-14**. Verificação `verificador-bd` na BD real:
+  **10/10 conformes** (assinaturas, prosecdef+search_path, grants incluindo
+  anon/authenticated, guards, 4 braços do motor, erros acumulados,
+  zero policies de kiosk, triggers intactos, zero instâncias). Tipos
+  regenerados com `--linked`: idênticos aos provisórios (diff vazio).
+  Nota: o push emitiu um erro colateral do `pg-delta` (certificado
+  `pgdelta-target-ca.crt` em falta) que não impediu a aplicação —
+  confirmado por `migration list` e pela verificação.
 - **Idempotência do `registar_checklist`** (`p_chave_idempotencia`) — NOTA do
   revisor-sql; rede instável pode duplicar um preenchimento on-demand.
   Entra no R2c.
@@ -97,9 +101,9 @@
 
 ## 4. Divergências (spec vs realidade)
 
-1. **Nome da RPC**: doc 13 §3 diz `registar_respostas_checklist`; o prompt de
-   execução (e o código) fixa `registar_checklist`. Decisão em falta: alinhar
-   o doc 13 ou renomear no R2c.
+1. **Nome da RPC — RESOLVIDA em 2026-07-14**: doc 13 §3 dizia
+   `registar_respostas_checklist`; o fundador fixou `registar_checklist`
+   como nome final e o doc 13 foi alinhado nesta branch.
 2. **`momento_dispositivo` como parâmetro explícito** da RPC (o prompt
    listava-o "no payload"): seguiu-se o padrão da `registar_picagem`.
 3. **`notificacao.destinatario` = null**: a coluna é nullable e não existe
@@ -144,12 +148,12 @@
 - `npm run build` (raiz): verde — admin compila + typecheck do kiosk sem erros.
 - `tests/run_local.sh`: verde — 12 ficheiros de teste, incluindo os 22 novos;
   "SUITE: todos os testes passaram".
-- Verificação da BD real (`verificador-bd`): **pendente** — depende do
-  `db push` aprovado.
+- Verificação da BD real (`verificador-bd`, pós-push 2026-07-14):
+  **10/10 conformes**.
 
 ## 8. Próximo passo do humano
 
-1. Aprovar/correr `npx supabase db push` (aplica `20260713210000`).
-2. Dar luz verde à verificação (`verificador-bd`) e à regeneração de tipos
-   `--linked` na sessão seguinte ao push.
-3. Decidir se o PR é criado (regra 5 do ciclo git).
+Rever e fazer merge do PR (criado com confirmação explícita do fundador em
+2026-07-14, após push aprovado e verificação 10/10). As divergências 3 e 5
+da secção 4 ficaram aceites como estão (decisão do fundador); a idempotência
+e o `destinatario` seguem para o R2c via doc 09.
