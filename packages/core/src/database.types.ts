@@ -7,6 +7,36 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       acao_corretiva: {
@@ -420,6 +450,7 @@ export type Database = {
           lojas_licenciadas: number
           nome: string
           plano: string | null
+          retencao_foto_dias: number
         }
         Insert: {
           colaboradores_licenciados?: number
@@ -428,6 +459,7 @@ export type Database = {
           lojas_licenciadas?: number
           nome: string
           plano?: string | null
+          retencao_foto_dias?: number
         }
         Update: {
           colaboradores_licenciados?: number
@@ -436,6 +468,7 @@ export type Database = {
           lojas_licenciadas?: number
           nome?: string
           plano?: string | null
+          retencao_foto_dias?: number
         }
         Relationships: []
       }
@@ -1101,6 +1134,7 @@ export type Database = {
       is_kiosk: { Args: never; Returns: boolean }
       jwt_app_meta: { Args: never; Returns: Json }
       kiosk_ativo: { Args: never; Returns: boolean }
+      limpar_autorizacoes: { Args: never; Returns: number }
       loja_atual: { Args: never; Returns: string }
       obter_cache_pins: {
         Args: never
@@ -1114,6 +1148,7 @@ export type Database = {
         }[]
       }
       publicar_versao: { Args: { p_versao_id: string }; Returns: Json }
+      purgar_fotos_expiradas: { Args: never; Returns: number }
       reativar_kiosk: { Args: { p_kiosk_id: string }; Returns: undefined }
       registar_chave_kiosk: {
         Args: { p_chave_hex: string }
@@ -1298,6 +1333,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
