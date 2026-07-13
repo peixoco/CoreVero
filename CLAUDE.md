@@ -11,7 +11,7 @@ SaaS multi-tenant (isolamento por `empresa_id` + RLS) para restauração em Port
 ## Comandos
 - Gate obrigatório antes de qualquer push: `npm run build` (raiz: compila o admin + typecheck do kiosk) e a suite SQL via `tests/run_local.sh` (Docker: Postgres descartável)
 - Aplicar migrações: `npx supabase db push` (pausa para aprovação humana)
-- Verificação pós-push da BD real: **delegar ao subagente `verificador-bd`** (psql read-only via `$COREVERO_DB_RO`) — não usar MCP
+- Verificação pós-push da BD real: **delegar ao subagente `verificador-bd`** (psql read-only via `$VERIFICA_DB_URL`) — não usar MCP
 - Regenerar tipos após alteração de schema: `npx supabase gen types typescript --linked`
 - Gestor de pacotes: **npm** (o repo tem `package-lock.json`)
 
@@ -55,7 +55,7 @@ O mesmo relatório alimenta as `docs/R*-notas.md` e a descrição do PR — uma 
 9. Vera e qualquer agente de AI do produto: números e limites legais só de fonte citada ou tabela de autoridade (`limite_legal` / plano do estabelecimento), nunca de memória de modelo; humano aprova sempre. O mesmo vale para conteúdo HACCP semeado por migração: só de docs canónicos, zero números de memória.
 10. Retenções legais são relógios independentes e configuráveis (6 relógios — ver doc 12, mapa consolidado); nunca um schedule único nem valores cravados.
 11. NIF/NISS/IBAN vivem apenas na tabela cifrada com role próprio; nunca expostos ao kiosk.
-12. A connection string `$COREVERO_DB_RO` nunca aparece em output, commit ou ficheiro do repo.
+12. A connection string `$VERIFICA_DB_URL` nunca aparece em output, commit ou ficheiro do repo.
 
 ## Delegação a subagentes
 - Exploração e pesquisa no repo (localizar ficheiros, inventários, "onde é usado X"): delega ao agente `explorador`.
