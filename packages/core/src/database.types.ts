@@ -1084,6 +1084,17 @@ export type Database = {
         }
         Returns: undefined
       }
+      avaliar_conformidade: {
+        Args: {
+          p_foto_url?: string
+          p_item: Database["public"]["Tables"]["checklist_item"]["Row"]
+          p_valor: string
+        }
+        Returns: {
+          conforme: boolean
+          motivo: string
+        }[]
+      }
       corrigir_picagem: {
         Args: {
           p_loja_id?: string
@@ -1148,12 +1159,24 @@ export type Database = {
           ultimo_tipo: string
         }[]
       }
+      obter_checklists_kiosk: { Args: never; Returns: Json }
       publicar_versao: { Args: { p_versao_id: string }; Returns: Json }
       purgar_fotos_expiradas: { Args: never; Returns: number }
       reativar_kiosk: { Args: { p_kiosk_id: string }; Returns: undefined }
       registar_chave_kiosk: {
         Args: { p_chave_hex: string }
         Returns: undefined
+      }
+      registar_checklist: {
+        Args: {
+          p_acoes: Json
+          p_codigo_pessoal: string
+          p_momento_dispositivo: string
+          p_pin: string
+          p_respostas: Json
+          p_versao_id: string
+        }
+        Returns: Json
       }
       registar_picagem: {
         Args: {
