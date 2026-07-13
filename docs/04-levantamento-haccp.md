@@ -1,118 +1,125 @@
-# 04 — Levantamento de Controlos HACCP (Restaurante) — versão fundamentada
+# 04 — Levantamento de Controlos HACCP (Restaurante)
 
-> Inventário dos controlos a monitorizar, com **fonte e estatuto de cada limite**, estruturado para mapear em `checklist_template` (grupo) + `checklist_item` (linha).
-> Substitui a versão anterior de valores indicativos: os números abaixo são extraídos das fontes que o utilizador indexou.
+> Inventário dos controlos que um restaurante deve monitorizar, estruturado para mapear em `checklist_template` (grupo) + `checklist_item` (linha).
+> **Os valores são indicativos típicos para Portugal.** Os limites e frequências definitivos vêm do plano HACCP da empresa (SARA) / de um responsável de segurança alimentar. Este documento é um superset — cada restaurante ativa só o que se aplica (ex. sem fritadeira → sem controlo de óleo).
 
 ---
 
-## 1. Hierarquia de fontes (regra de governação)
+## 1. Enquadramento
 
-A mesma grandeza pode ter valores diferentes em fontes diferentes. Regra:
+- Base legal: **Regulamento (CE) 852/2004** (higiene dos géneros alimentícios) e Reg. 178/2002. Fiscalização: **ASAE**.
+- Dois níveis de controlo:
+  - **Pré-requisitos (PRP)** — programas de base (higiene, limpeza, pragas, receção, etc.). A maioria são verificações de tipo booleano/observação.
+  - **Pontos Críticos de Controlo (PCC)** — etapas onde um limite crítico mensurável tem de ser cumprido (temperaturas de confeção, conservação, óleo). São tipicamente numéricos com **ação corretiva obrigatória** quando fora do limite.
 
-**Lei > Código de boas práticas > Plano do estabelecimento — e nunca abaixo do mínimo legal.**
+### Como cada controlo mapeia no produto
 
-- **Lei** — vinculativa e universal (Portaria 1135/95; Reg. (CE) 853/2004).
-- **Código de boas práticas** (AHRESP, reconhecido pela DGAV) — referência; adotá-lo corretamente é, para estabelecimentos até 10 trabalhadores, uma rota de conformidade que dispensa a aplicação dos princípios HACCP da legislação.
-- **Plano HACCP do estabelecimento** — o valor operativo para aquele cliente; pode ser mais estrito, nunca menos que o mínimo legal.
-  Regra do RAG: a AI **cita a fonte** de cada limite e o seu estatuto; onde as fontes divergem, apresenta ambas e remete o desempate para o plano do estabelecimento; onde o corpus é omisso, diz que não sabe — **nunca inventa**.
+| Campo do controlo   | Coluna em `checklist_item`                                   |
+| ------------------- | ------------------------------------------------------------ |
+| O que se monitoriza | `texto`                                                      |
+| Tipo de medição     | `tipo_resposta` (`numerico` / `booleano` / `texto` / `foto`) |
+| Unidade             | `unidade`                                                    |
+| Limite crítico      | `limite_min` / `limite_max`                                  |
+| Frequência          | `frequencia` no `checklist_template`                         |
 
-**Decisão adotada:** o código de referência por defeito é o **Código de Boas Práticas da AHRESP** (cozedura/reaquecimento/conservação a quente ≥ 65 °C; refrigeração 0–7 °C; arrefecimento até 5 °C em ≤ 2 h; congelados ≤ −12 °C / ultracongelados ≤ −18 °C). **Exceção obrigatória:** para produtos de origem animal, os limites do Reg. 853/2004 prevalecem (ex.: congelados ≤ −18 °C, pescado ≈ 0 °C); o óleo segue a Portaria 1135/95. Nenhum item desce abaixo do mínimo legal.
+Os controlos numéricos com limite são os que disparam **conformidade automática + ação corretiva** (e a notificação por email).
 
 ---
 
 ## 2. Pontos Críticos de Controlo (PCC) — numéricos, com ação corretiva
 
-| Controlo                            | Tipo     | Unidade    | Limite                                     | Fonte            | Estatuto    |
-| ----------------------------------- | -------- | ---------- | ------------------------------------------ | ---------------- | ----------- |
-| Confeção (interior)                 | numérico | °C         | **≥ 65 °C**                                | Código AHRESP    | Boa prática |
-| Reaquecimento (interior)            | numérico | °C         | **≥ 65 °C** (abaixo: eliminar)             | Código AHRESP    | Boa prática |
-| Conservação a quente                | numérico | °C         | **≥ 65 °C**                                | Código AHRESP    | Boa prática |
-| Arrefecimento de confecionados      | numérico | °C / tempo | até **5 °C em ≤ 2 h**                      | Código AHRESP    | Boa prática |
-| Refrigeração (geral)                | numérico | °C         | **0–7 °C** (0–4 °C em frio positivo único) | Código AHRESP    | Boa prática |
-| Congelados                          | numérico | °C         | **≤ −12 °C**                               | Código AHRESP    | Boa prática |
-| Ultracongelados                     | numérico | °C         | **≤ −18 °C**                               | Código AHRESP    | Boa prática |
-| Óleo de fritura — temperatura       | numérico | °C         | **≤ 180 °C**                               | Portaria 1135/95 | Lei         |
-| Óleo de fritura — compostos polares | numérico | %          | **≤ 25 %**                                 | Portaria 1135/95 | Lei         |
+| Controlo                               | Monitoriza                              | Tipo     | Unidade  | Limite indicativo                                          | Frequência indicativa        |
+| -------------------------------------- | --------------------------------------- | -------- | -------- | ---------------------------------------------------------- | ---------------------------- |
+| Confeção (cozedura)                    | Temperatura no núcleo do alimento       | numérico | °C       | **≥ 75 °C** no centro                                      | Por confeção / lote          |
+| Reaquecimento                          | Temperatura no núcleo                   | numérico | °C       | **≥ 75 °C**, uma única vez                                 | Por reaquecimento            |
+| Conservação a quente                   | Temperatura de manutenção               | numérico | °C       | **≥ 65 °C** (UE geral ≥ 63 °C)                             | Durante o serviço (ex. 2/2h) |
+| Conservação a frio / refrigeração      | Temperatura da câmara/equipamento       | numérico | °C       | **0–5 °C** (≤ 5 °C; alguns produtos mais baixo)            | 1–2× por dia                 |
+| Congelação / conservação de congelados | Temperatura do congelador               | numérico | °C       | **≤ −18 °C**                                               | 1–2× por dia                 |
+| Arrefecimento rápido                   | Tempo/temperatura de descida            | numérico | °C / min | Reduzir núcleo rapidamente (ex. > 63 °C → ≤ 10 °C em ≤ 2h) | Por lote arrefecido          |
+| Descongelação                          | Em refrigeração, temperatura controlada | numérico | °C       | ≤ 5 °C (nunca à temperatura ambiente)                      | Por descongelação            |
+| Óleo de fritura — temperatura          | Temperatura do banho                    | numérico | °C       | **≤ 180 °C** (Portaria 1135/95)                            | Em uso                       |
+| Óleo de fritura — degradação           | Compostos polares totais (TPM)          | numérico | %        | **≤ 25 %** (Portaria 1135/95)                              | Diária / por uso             |
 
-### PCC adicionais para produtos de origem animal (lei — sobrepõe-se ao código)
-
-| Produto                                          | Limite                                        | Fonte         |
-| ------------------------------------------------ | --------------------------------------------- | ------------- |
-| Carne (peças)                                    | ≤ 7 °C                                        | Reg. 853/2004 |
-| Miudezas / vísceras                              | ≤ 3 °C                                        | Reg. 853/2004 |
-| Aves de capoeira                                 | ≤ 4 °C                                        | Reg. 853/2004 |
-| Carne picada                                     | ≤ 2 °C (ou congelada ≤ −18 °C)                | Reg. 853/2004 |
-| Preparados de carne                              | ≤ 4 °C                                        | Reg. 853/2004 |
-| Pescado fresco                                   | próximo do gelo fundente (≈ 0 °C)             | Reg. 853/2004 |
-| Pescado congelado                                | ≤ −18 °C                                      | Reg. 853/2004 |
-| Pescado a tratar contra parasitas (cru/marinado) | ≤ −20 °C durante ≥ 24 h                       | Reg. 853/2004 |
-| Leite cru                                        | ≤ 6–8 °C (armazenagem) / ≤ 10 °C (transporte) | Reg. 853/2004 |
-| Higienização de utensílios                       | água ≥ 82 °C                                  | Reg. 853/2004 |
+> Notas de origem: confeção/reaquecimento ≥75 °C e conservação a quente ≥65 °C constam dos códigos de boas práticas portugueses (AHRESP/DGAV); UE geral cita ≥63 °C para hot holding. Óleo: Portaria 1135/95 (≤180 °C e ≤25 % compostos polares). Refrigeração 0–5 °C e congelados −18 °C: ASAE / códigos de boas práticas. **Confirmar todos com o plano SARA.**
 
 ---
 
-## 3. Discrepâncias conhecidas (a AI tem de as expor, não esconder)
+## 3. Pré-requisitos (PRP) — verificações e registos
 
-1. **Cozedura: 65 °C (Código AHRESP) vs 75 °C (Codex / guias internacionais).** Ambos boa prática. O código AHRESP, adotado, dá conformidade a 65 °C; planos baseados no Codex usam 75 °C. Desempate: plano do estabelecimento.
-2. **Congelados: −12 °C (Código AHRESP) vs −18 °C (Reg. 853/2004, lei, para origem animal).** A lei prevalece: para produto animal, ≤ −18 °C.
+### 3.1 Receção de mercadorias (por entrega)
+
+| Controlo                                        | Tipo          | Limite/critério indicativo |
+| ----------------------------------------------- | ------------- | -------------------------- |
+| Temperatura de produtos refrigerados na entrega | numérico (°C) | ≤ 5 °C (conforme produto)  |
+| Temperatura de produtos congelados na entrega   | numérico (°C) | ≤ −18 °C                   |
+| Integridade da embalagem                        | booleano      | Sem danos                  |
+| Prazo de validade                               | booleano      | Dentro da validade         |
+| Fornecedor aprovado / documentação              | booleano      | Sim                        |
+| Higiene do veículo de transporte                | booleano      | Conforme                   |
+
+### 3.2 Armazenamento
+
+| Controlo                                            | Tipo          | Critério indicativo             |
+| --------------------------------------------------- | ------------- | ------------------------------- |
+| Temperatura de câmaras/equipamentos de frio         | numérico (°C) | Ver PCC refrigeração/congelação |
+| Armazém seco — temperatura/humidade                 | numérico      | Ambiente fresco e seco          |
+| Rotação de stock (FIFO/FEFO)                        | booleano      | Cumprido                        |
+| Separação cru/cozinhado e alergénios                | booleano      | Sem contaminação cruzada        |
+| Produtos afastados do solo/paredes (~20 cm)         | booleano      | Cumprido                        |
+| Identificação/data de produtos abertos e congelados | booleano      | Etiquetado                      |
+
+### 3.3 Higiene e saúde dos manipuladores
+
+| Controlo                                    | Tipo     | Critério |
+| ------------------------------------------- | -------- | -------- |
+| Lavagem de mãos nos momentos-chave          | booleano | Cumprido |
+| Fardamento limpo e adequado                 | booleano | Conforme |
+| Estado de saúde / declaração (sem sintomas) | booleano | Apto     |
+| Uso correto de luvas                        | booleano | Conforme |
+| Feridas protegidas                          | booleano | Conforme |
+
+### 3.4 Higienização (plano de limpeza)
+
+| Controlo                                      | Tipo              | Critério                   |
+| --------------------------------------------- | ----------------- | -------------------------- |
+| Limpeza de superfícies de trabalho            | booleano          | Conforme plano (por turno) |
+| Limpeza de equipamentos                       | booleano          | Conforme plano             |
+| Limpeza de instalações (chão, casas de banho) | booleano          | Conforme plano             |
+| Concentração/uso correto de desinfetantes     | booleano/numérico | Conforme ficha técnica     |
+| Higienização de termómetros entre amostras    | booleano          | Cumprido                   |
+
+### 3.5 Outros pré-requisitos
+
+| Programa                | Controlo                                          | Tipo              | Frequência indicativa       |
+| ----------------------- | ------------------------------------------------- | ----------------- | --------------------------- |
+| Controlo de pragas      | Sinais de pragas; visita de empresa especializada | booleano/texto    | Contínuo + visita periódica |
+| Controlo da água        | Potabilidade (rede ou análises)                   | booleano/numérico | Conforme plano              |
+| Resíduos e óleos usados | Recolha por operador licenciado                   | booleano          | Conforme recolha            |
+| Rastreabilidade         | Registo de lotes/fornecedores                     | texto             | Por receção/produção        |
+| Alergénios              | Informação e separação                            | booleano          | Contínuo                    |
+| Manutenção e calibração | Calibração de termómetros; avarias de equipamento | numérico/texto    | Periódica / por avaria      |
+| Formação                | Formação de manipuladores atualizada              | booleano          | Periódica                   |
 
 ---
 
-## 4. Pré-requisitos (PRP) — verificações booleanas/texto
+## 4. Tradução para templates (sugestão de arranque)
 
-Lista dos programas de pré-requisitos (AHRESP), cruzada com as áreas que a ASAE fiscaliza:
+Templates iniciais recomendados (cada um com a sua frequência):
 
-1. Instalações e equipamentos (estado, separação cru/cozinhado)
-2. Limpeza e desinfeção (plano + evidência)
-3. Controlo de pragas (contrato + relatórios)
-4. Manutenção técnica e calibração de termómetros
-5. Contaminação física e química
-6. Alergénios e contaminação cruzada
-7. Gestão de resíduos
-8. Controlo da água (potabilidade)
-9. Pessoal — higiene e estado de saúde (fichas de aptidão)
-10. Matérias-primas / receção / seleção de fornecedores
-11. Controlo de temperaturas (suporta os PCC)
-12. Metodologia de trabalho
-13. Informação ao consumidor (alergénios, validade)
-14. Controlo de prazos de validade
-15. Manipulação de alimentos devolvidos
-    16/17. Doação de alimentos (opcional, só se aplicável)
-    Base legal qualitativa: Reg. (CE) 852/2004 (Anexo II) + Reg. 178/2002.
+1. **Temperaturas de frio — diário** (refrigeradores + congeladores) → itens numéricos com limite.
+2. **Confeção e serviço** → núcleo de cozedura, conservação a quente → numéricos com limite.
+3. **Óleo de fritura** (só se aplicável) → temperatura + compostos polares → numéricos com limite.
+4. **Receção de mercadorias** → por entrega → mistura de numérico + booleano.
+5. **Higienização** → por turno → booleanos conforme plano.
+6. **Higiene pessoal / abertura** → diário → booleanos.
+7. **Pré-requisitos periódicos** → pragas, água, calibração, formação → booleano/texto.
+
+Regra de desenho que isto confirma: **nada disto é código.** São templates e itens que o administrador cria e ajusta na UI, com os limites do plano SARA. Um restaurante sem fritadeira desativa o template 3; uma cadeia com plano próprio ajusta limites — sem alterações de software.
 
 ---
 
-## 5. Critérios de prova que a ASAE valoriza (requisitos de produto, não campos do item)
+## 5. Avisos
 
-A maioria das não conformidades vem da **falta de evidência de execução**, não da ausência de plano. O produto tem de garantir:
-
-- Quem + quando + como (primitivo `verificacao` + foto)
-- Registos **não retroativos**, com hora autoritária do dispositivo
-- Valores **não repetidos automaticamente** (sinal de fraude)
-- Mostrar o que **faltou**, não só o feito (instâncias `em_falta`)
-- Ações corretivas registadas e autenticadas
-- Plano atualizado quando muda menu/equipamento (versionamento de template)
-
----
-
-## 6. Mapeamento para `checklist_item`
-
-| Campo do controlo | Coluna                                                |
-| ----------------- | ----------------------------------------------------- |
-| O que monitoriza  | `texto`                                               |
-| Tipo              | `tipo_resposta` (numerico/booleano/texto/foto)        |
-| Unidade           | `unidade`                                             |
-| Limite            | `limite_min` / `limite_max`                           |
-| Fonte do limite   | (novo) campo de proveniência — para citação/auditoria |
-| Estatuto          | (novo) lei / boa prática / plano                      |
-| Frequência        | `frequencia` no `checklist_template`                  |
-
----
-
-## 7. Corpus do RAG (camadas)
-
-- **Lei:** Portaria 1135/95 (óleo); Reg. 853/2004 (cadeia de frio animal, higienização).
-- **Moldura + PRP:** Reg. 852/2004; formações/PPR AHRESP.
-- **Boa prática (números de cozedura/conservação):** Código de Boas Práticas AHRESP; manual de boas práticas 2008.
-- **Vinculativo por cliente:** plano HACCP do estabelecimento (importado por tenant).
-  Regra transversal: citar a fonte; expor divergências; nunca descer abaixo do mínimo legal; nunca inventar.
+- Valores indicativos. Os limites críticos, frequências e a própria lista de PCC dependem da **análise de perigos** específica do estabelecimento — input do plano HACCP (SARA) / responsável de segurança alimentar.
+- O software regista e prova; não substitui o estudo HACCP.
+- Alguns produtos têm temperaturas específicas mais estritas (ex. pescado fresco, lacticínios) — refletir no item, não numa regra global.
