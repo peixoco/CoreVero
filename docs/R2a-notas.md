@@ -69,15 +69,30 @@
    - **Teste `tests/11_biblioteca_base_test.sql`** — 7 em rascunho, nenhum
      publicado, proveniência em todos os itens, idempotência, no-op em
      empresa com templates, kiosk barrado.
-   - **Decisões de conteúdo (a validar no PR):** o doc 04 lista controlos,
-     não nomeia 7 templates — agrupados por rotina de trabalho (frio; quente;
-     óleo; receção origem animal; higienização/instalações; pragas/manutenção;
-     higiene pessoal). **Pescado fresco** sem limite numérico gravado (o doc
-     diz "≈ 0 °C" — fixar no plano do estabelecimento; nota na referência do
-     item). **Leite cru** (valor ambíguo 6–8 °C, raro em restauração) e o
-     **tratamento de parasitas** (−20 °C/24 h, controlo de processo, não de
-     receção) ficaram fora da biblioteca. Itens de receção como
-     `obrigatorio=false` (nem toda a entrega tem todas as categorias).
+   - **Decisões de conteúdo (contra o §4 canónico — ver também o incidente
+     de processo abaixo):** o §4 do doc 04 canónico nomeia expressamente os
+     7 templates; a RPC realinhada (migração `20260713200000`) segue-os à
+     letra: Temperaturas de frio (diário), Confeção e serviço (por turno),
+     Óleo de fritura (diário, "só se aplicável"), Receção de mercadorias
+     (por entrega — a origem animal são itens deste template, não template
+     próprio), Higienização (por turno), Higiene pessoal / abertura (diário)
+     e Pré-requisitos periódicos (semanal). Valores do §2 canónico
+     (confeção/reaquecimento ≥ 75 °C; conservação a quente ≥ 65 °C;
+     refrigeração 0–5 °C; congelados ≤ −18 °C; arrefecimento ≤ 10 °C em
+     ≤ 2 h; descongelação ≤ 5 °C; óleo 180 °C / 25 % por lei). Os valores
+     de origem animal não constam dos §2/§3 canónicos — verificados
+     diretamente no texto indexado do Reg. 853/2004 (Anexo III, Secções
+     I/II/V/VIII, `Project_2026/haccp/regul.853.2004.md`). Decisões
+     preservadas, ainda válidas face ao doc canónico: **pescado fresco**
+     sem limite numérico gravado (o regulamento diz "próxima da do gelo
+     fundente"; o texto do item sinaliza-o); **leite cru** e o **tratamento
+     de parasitas** fora da biblioteca; **temperaturas de receção** com
+     `obrigatorio=false` (nem toda a entrega tem todas as categorias) e
+     booleanos gerais da receção obrigatórios. Removidos face à primeira
+     versão: os **82 °C** de higienização de utensílios (no Reg. 853/2004
+     o contexto é matadouros; o §3.4 canónico não os tem) e os itens de
+     armazenamento/alergénios/validades (não pertencem a nenhum template
+     do §4 — o admin acrescenta conforme o plano).
    - **Correção pós-verificação:** os default privileges do Supabase davam
      EXECUTE a `anon` nas 3 RPCs novas (as definer antigas já revogavam
      `public, anon` — 20260712150200). A migração
@@ -99,6 +114,25 @@
    caíram com as tabelas antigas e **não foram recriadas**: o kiosk está fora
    do âmbito do R2a; o R2b recria-as com o fluxo de preenchimento. O teste 02
    passou a esperar 0 templates visíveis pelo kiosk.
+
+## Incidente de processo (2026-07-13)
+
+**Duas migrações construídas sobre um doc desatualizado.** A migração
+`20260713190000` (e a revisão que a validou) usou o `docs/04-levantamento-haccp.md`
+então presente no repo, que estava desatualizado face à versão canónica do
+fundador — agrupamento e vários valores divergiam (confeção 65 vs 75 °C,
+refrigeração 0–7 vs 0–5 °C, congelados −12 vs −18 °C, 82 °C inexistente no
+doc canónico, e o §4 real nomeia os 7 templates que o relatório inicial deu
+como inexistentes). **Apanhado com zero dados afetados** — verificado na BD
+real: nenhuma empresa tinha instalado a biblioteca; o problema ficou
+confinado ao corpo da função. **Causa:** docs divergentes entre o repo e a
+fonte do fundador. **Correção de fundo:** o repo passou a fonte única
+(commits `ada039e` e `c83fa08`); correção técnica na migração
+`20260713200000` (CREATE OR REPLACE realinhado, revisto valor a valor,
+verificado na BD real: nomes do §4 presentes, valores canónicos presentes,
+conteúdo antigo ausente). O teste 11 passou a ter *pins* de valores
+canónicos (confeção ≥ 75, refrigeração 0–5, nomes do §4) para que um futuro
+desalinhamento de conteúdo falhe a suite em vez de passar despercebido.
 
 ## Decisões de interpretação (registadas porque o doc 13 não fecha o detalhe)
 
@@ -123,7 +157,10 @@
 - `67b4988` — RPC instalar_templates_base (biblioteca do doc 04)
 - `e5ae894` — botão "Instalar biblioteca base" + tipo da RPC
 - `b32d386` — revogar EXECUTE de anon nas RPCs de checklist
-- (este fecho) — R2a-notas: divergência 1 resolvida
+- `a216b0a` — R2a-notas: divergência 1 resolvida
+- `c83fa08` — (fundador) doc 04 substituído pela versão canónica
+- `24540b8` — realinhar instalar_templates_base ao doc 04 canónico
+- (este fecho) — R2a-notas: incidente de processo + decisões corrigidas
 
 ## Gate da fase (doc 13 §5)
 
