@@ -38,7 +38,7 @@
 ### R2 — Frente B: HACCP (XL) — faseado pelo doc 13
 Pela ordem fechada: schema `checklist_*` + proveniência de limites → construtor de templates → motor de conformidade + ação corretiva forçada → preenchimento no kiosk → notificações (Resend) → agendamento + `em_falta` → **Vera + RAG** por último, sobre motor estável.
 
-- ~~**R2a** — schema versionado + construtor de templates~~ ✅ Fechado 2026-07-13 (`docs/R2a-notas.md`): migrações `20260713170000`/`20260713170100` verificadas na BD real; secção Checklists no admin. **Pendente herdado:** `instalar_templates_base()` e a biblioteca dos 7 templates — bloqueados pela ausência do doc 04 no repo (divergência nas notas).
+- ~~**R2a** — schema versionado + construtor de templates + biblioteca base~~ ✅ Fechado 2026-07-13 (`docs/R2a-notas.md`): migrações `20260713170000`–`20260713191000` verificadas na BD real; secção Checklists no admin com "Instalar biblioteca base" (7 templates do doc 04, sempre em rascunho). Divergência do doc 04 resolvida com a entrada de `docs/04-levantamento-haccp.md` no repo.
 - **R2b** — motor de conformidade + preenchimento no kiosk (online-only) + ação corretiva forçada ← **atual**
 - **R2c** — agendador (instâncias + `em_falta`) + notificações Resend + relatório do dia
 - **R2d** — Vera + RAG sobre motor estável

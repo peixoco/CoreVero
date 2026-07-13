@@ -52,16 +52,37 @@
 
 ## Divergências (regra do CLAUDE.md: parar, registar, não improvisar)
 
-1. **Doc 04 ausente do repo** — o prompt manda criar `instalar_templates_base()`
-   com os 7 templates do doc 04 §4 e os valores indicativos dos §2/§3. O doc 04
-   ("HACCP conteúdo", referenciado pelo doc 08) **não existe** em `docs/`, no
-   histórico git, no filesystem (`Project_2026/`) nem no Drive. Semear conteúdo
-   HACCP de memória de modelo violaria a invariante 9. **Não implementado:**
-   a RPC `instalar_templates_base`, o botão "Instalar biblioteca base" e o
-   teste 4.4. Fica pendente para quando o doc 04 entrar no repo (ou o fundador
-   confirmar que a biblioteca deve ser derivada das fontes em
-   `Project_2026/haccp/` — AHRESP CBPH, manual de boas práticas 2008 — com
-   revisão humana). A infraestrutura (RPCs de versão, editor) está pronta.
+1. **Doc 04 ausente do repo — RESOLVIDA em 2026-07-13.** No fecho inicial, o
+   doc 04 não existia em lado nenhum e a biblioteca base ficou de fora (semear
+   conteúdo HACCP de memória de modelo violaria a invariante 9). O fundador
+   colocou `docs/04-levantamento-haccp.md` no repo (commit `ada039e`) e a
+   pendência foi implementada na continuação:
+   - **Migração `20260713190000_instalar_templates_base.sql`** — RPC SECURITY
+     DEFINER que cria os 7 templates em rascunho (nunca publica), idempotente
+     (advisory lock por empresa + no-op se a empresa já tiver templates).
+     Valores e proveniência copiados do doc 04 §2/§4 e **verificados valor a
+     valor pelo revisor-sql** — zero números fora do doc. Óleo de fritura
+     ligado a `limite_legal` (lei); origem animal e água ≥ 82 °C como `lei`
+     (Reg. 853/2004); temperaturas AHRESP e PRPs como `codigo_boas_praticas`.
+   - **Botão "Instalar biblioteca base"** na lista de checklists (resultado
+     por extenso; erros via `lib/erros.tsx`).
+   - **Teste `tests/11_biblioteca_base_test.sql`** — 7 em rascunho, nenhum
+     publicado, proveniência em todos os itens, idempotência, no-op em
+     empresa com templates, kiosk barrado.
+   - **Decisões de conteúdo (a validar no PR):** o doc 04 lista controlos,
+     não nomeia 7 templates — agrupados por rotina de trabalho (frio; quente;
+     óleo; receção origem animal; higienização/instalações; pragas/manutenção;
+     higiene pessoal). **Pescado fresco** sem limite numérico gravado (o doc
+     diz "≈ 0 °C" — fixar no plano do estabelecimento; nota na referência do
+     item). **Leite cru** (valor ambíguo 6–8 °C, raro em restauração) e o
+     **tratamento de parasitas** (−20 °C/24 h, controlo de processo, não de
+     receção) ficaram fora da biblioteca. Itens de receção como
+     `obrigatorio=false` (nem toda a entrega tem todas as categorias).
+   - **Correção pós-verificação:** os default privileges do Supabase davam
+     EXECUTE a `anon` nas 3 RPCs novas (as definer antigas já revogavam
+     `public, anon` — 20260712150200). A migração
+     `20260713191000_rpcs_checklist_revogar_anon.sql` fecha o gap
+     (invariante 6; sem exploração prática — todas exigem `is_admin`).
 2. **Seed do Reg. 853/2004 (cadeia de frio) não semeado** — a instrução era
    semear apenas valores encontrados nos docs do repo com atribuição expressa
    à norma; nenhum doc do repo os tem. Entraram só as duas linhas da
@@ -98,7 +119,11 @@
 - `271f7df` — tipos regenerados (PG local, pré-push)
 - `33ecc4c` — construtor de templates no admin
 - `29dc3c1` — tipos canónicos (`--linked`, pós-push)
-- (este fecho) — docs 09 v3.2 + R2a-notas
+- `da66a14` — fecho inicial: docs 09 v3.2 + R2a-notas
+- `67b4988` — RPC instalar_templates_base (biblioteca do doc 04)
+- `e5ae894` — botão "Instalar biblioteca base" + tipo da RPC
+- `b32d386` — revogar EXECUTE de anon nas RPCs de checklist
+- (este fecho) — R2a-notas: divergência 1 resolvida
 
 ## Gate da fase (doc 13 §5)
 
