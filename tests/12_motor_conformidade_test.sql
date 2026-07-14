@@ -253,7 +253,21 @@ begin
     raise exception 'FALHA TESTE 3b: motivo não menciona "acima": %', v_motivo;
   end if;
 
-  raise notice 'TESTE 3 (numérico só com limite_max): OK';
+  -- fronteira exata: -18 = max → conforme (congelados vivem no limite; R2b1)
+  select ac.conforme, ac.motivo into v_conf, v_motivo
+    from public.avaliar_conformidade(v_item, '-18', null) ac;
+  if not v_conf then
+    raise exception 'FALHA TESTE 3c: -18 igual ao max=-18 deveria ser conforme (motivo: %)', v_motivo;
+  end if;
+
+  -- negativo com casa decimal (teclado do kiosk normaliza vírgula→ponto)
+  select ac.conforme, ac.motivo into v_conf, v_motivo
+    from public.avaliar_conformidade(v_item, '-17.5', null) ac;
+  if v_conf then
+    raise exception 'FALHA TESTE 3d: -17.5 deveria ser não conforme (max=-18)';
+  end if;
+
+  raise notice 'TESTE 3 (numérico só com limite_max, negativos incl. fronteira -18): OK';
 end $$;
 
 -- ---- TESTE 4: booleano com booleano_conforme = false (pragas) ----
@@ -394,8 +408,6 @@ declare
   v_inst_id     uuid;
   v_vid         uuid;
   v_momento     timestamptz := now() - interval '3 minutes';
-  v_foto_path   text;
-  v_esperado    text;
 begin
   v_res := public.registar_checklist(
     '1001', '9999',
@@ -416,7 +428,6 @@ begin
   -- resumo deve ter campos esperados
   v_inst_id := (v_res->>'instancia_id')::uuid;
   v_vid     := (v_res->>'verificacao_id')::uuid;
-  v_foto_path := v_res->>'foto_path';
   if v_inst_id is null then raise exception 'FALHA TESTE 8: instancia_id em falta no resumo'; end if;
   if v_vid     is null then raise exception 'FALHA TESTE 8: verificacao_id em falta no resumo'; end if;
   if (v_res->>'respostas')::int <> 7 then
@@ -424,6 +435,10 @@ begin
   end if;
   if (v_res->>'nao_conformes')::int <> 0 then
     raise exception 'FALHA TESTE 8: não deveria haver não conformes';
+  end if;
+  -- R2b1: o resumo já NÃO devolve foto_path (sem upload de foto de atribuição)
+  if (v_res::jsonb) ? 'foto_path' then
+    raise exception 'FALHA TESTE 8: resumo não deveria incluir foto_path (R2b1)';
   end if;
 
   reset role;
@@ -440,22 +455,16 @@ begin
     raise exception 'FALHA TESTE 8: versao_id errado na instância';
   end if;
 
-  -- verificar verificacao: momento_dispositivo e foto_url com caminho correto
+  -- verificar verificacao: momento_dispositivo correto e SEM foto de
+  -- atribuição (R2b1: autenticação só por código + PIN → foto_url null)
   if abs(extract(epoch from
       (select momento_dispositivo from verificacao where id = v_vid) - v_momento
     )) > 1 then
     raise exception 'FALHA TESTE 8: momento_dispositivo diverge do enviado';
   end if;
-  v_esperado := '11111111-1111-1111-1111-111111111111'
-                || '/a1100000-0000-0000-0000-000000000001'
-                || '/a1200000-0000-0000-0000-000000000001/'
-                || v_vid::text || '.jpg';
-  if (select foto_url from verificacao where id = v_vid) <> v_esperado then
-    raise exception 'FALHA TESTE 8: foto_url na verificacao errado (esperado: %, obtido: %)',
-      v_esperado, (select foto_url from verificacao where id = v_vid);
-  end if;
-  if v_foto_path <> v_esperado then
-    raise exception 'FALHA TESTE 8: foto_path no resumo não coincide com foto_url';
+  if (select foto_url from verificacao where id = v_vid) is not null then
+    raise exception 'FALHA TESTE 8: verificacao.foto_url deveria ser null (R2b1), obtido: %',
+      (select foto_url from verificacao where id = v_vid);
   end if;
 
   -- todas as respostas conformes
