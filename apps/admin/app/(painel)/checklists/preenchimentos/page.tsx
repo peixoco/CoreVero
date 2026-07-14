@@ -62,8 +62,14 @@ export default function Preenchimentos() {
       .order("concluida_em", { ascending: false })
       .limit(50)
       .then(({ data, error }) => {
-        if (error) setErro(mensagemErro(error));
-        else setInstancias(data as unknown as Instancia[]);
+        if (error) {
+          setErro(mensagemErro(error));
+          // Nunca ficar preso em "A carregar…": com erro, a tabela mostra o
+          // estado vazio e o ErroAviso mostra o texto completo do erro.
+          setInstancias([]);
+        } else {
+          setInstancias((data as unknown as Instancia[]) ?? []);
+        }
       });
   }, []);
 
@@ -107,7 +113,7 @@ export default function Preenchimentos() {
             </thead>
             <tbody>
               {instancias.map((inst) => {
-                const nNaoConformes = inst.respostas.filter(
+                const nNaoConformes = (inst.respostas ?? []).filter(
                   (r) => !r.conforme,
                 ).length;
                 return (

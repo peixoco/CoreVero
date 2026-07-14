@@ -133,7 +133,8 @@ avaliar_conformidade(item, valor) → (conforme bool, motivo text)
 
 Autoridade e fluxo:
 1. **Kiosk (UX apenas):** avalia localmente para forçar o fluxo de ação corretiva antes do submit; nunca envia `conforme`.
-2. **`registar_checklist` (RPC SECURITY DEFINER, atómica; nome final fixado no R2b):** valida a instância (estado, loja do kiosk, versão publicada), reavalia cada resposta com `avaliar_conformidade`, escreve respostas + `conforme`, cria a `verificacao` da conclusão.
+2. **`registar_checklist` (RPC SECURITY DEFINER, atómica; nome final fixado no R2b):** valida a instância (estado, loja do kiosk, versão publicada), reavalia cada resposta com `avaliar_conformidade`, escreve respostas + `conforme`, cria a `verificacao` da conclusão **sem foto de atribuição** (`verificacao.foto_url = null`).
+   > **Emenda (decisão do fundador, R2b1):** a autenticação de checklists é só **código + PIN** — a foto de atribuição é exclusiva da picagem (anti-fraude do registo de tempos, auditoria aleatória; minimização RGPD). Fotos em checklists existem apenas ao nível do item (`tipo_resposta='foto'`, câmara traseira, para fotografar a tarefa/equipamento — pendente para R2c+).
 3. **Fecho:** a instância só passa a `concluida` se todos os itens `obrigatorio` têm resposta **e** toda a resposta não conforme tem `acao_corretiva`. A RPC recebe as ações corretivas no mesmo payload (o kiosk força a descrição no momento) — sem estado intermédio "concluída com pendências".
 4. **Não conformidade ⇒ notificação:** inserção em `notificacao` na mesma transação; envio assíncrono (worker/Edge Function) fora dela.
 

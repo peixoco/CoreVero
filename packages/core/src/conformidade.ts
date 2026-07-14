@@ -57,14 +57,18 @@ export type ResultadoConformidade = {
 
 /**
  * Normaliza um valor numérico recebido do teclado do kiosk:
- * substitui a vírgula decimal por ponto, para que o Postgres possa
- * interpretar o valor como numeric (Postgres NÃO aceita vírgula).
+ *   · substitui a vírgula decimal por ponto, para que o Postgres possa
+ *     interpretar o valor como numeric (Postgres NÃO aceita vírgula);
+ *   · normaliza o sinal de menos Unicode (−, U+2212 — usado por alguns
+ *     teclados iOS) para o hífen ASCII, para que negativos como −18 °C
+ *     (congelados) sejam aceites de ponta a ponta;
+ *   · remove espaços nas pontas.
  *
  * Deve ser aplicado ANTES de chamar avaliarConformidade com tipo 'numerico'
  * E ANTES de submeter o payload ao servidor em p_respostas.
  */
 export function normalizarValorNumerico(valor: string): string {
-  return valor.replace(",", ".");
+  return valor.trim().replace(",", ".").replace("−", "-");
 }
 
 // ---------------------------------------------------------------------------

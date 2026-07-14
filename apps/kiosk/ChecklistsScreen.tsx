@@ -5,11 +5,14 @@
 // A avaliação de conformidade é local (UX apenas); a autoridade é sempre o
 // servidor (registar_checklist valida e avalia de raiz — D3 do doc 13).
 //
+// Autenticação só por código + PIN (decisão do fundador, R2b1): a foto de
+// atribuição é exclusiva da picagem. Fotos em checklists existem apenas ao
+// nível do item (tipo_resposta='foto', câmara traseira — pendente R2c+).
+//
 // Fases:
 //   lista      → lista de checklists disponíveis (carregadas de cache + servidor)
 //   codigo     → pede o código pessoal do colaborador (Keypad)
 //   pin        → pede o PIN (Keypad mascarado)
-//   camera     → captura foto de atribuição frontal (mesmo padrão da picagem)
 //   formulario → preenchimento item a item (scroll view)
 //   processar  → a submeter ao servidor
 //   sucesso    → confirmação com resumo; auto-reset
@@ -19,8 +22,6 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
-  Dimensions,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -28,8 +29,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { CameraView, useCameraPermissions } from "expo-camera";
-import { decode } from "base64-arraybuffer";
 import {
   avaliarConformidade,
   normalizarValorNumerico,
@@ -51,8 +50,6 @@ const PAPEL = "#F7F6F2";
 const CINZA = "#6B7C8C";
 const VERMELHO = "#B23A3A";
 
-const CIRCULO = Math.min(Dimensions.get("window").width - 64, 320);
-
 // ---------------------------------------------------------------------------
 // Tipos locais
 // ---------------------------------------------------------------------------
@@ -60,7 +57,6 @@ type FaseChecklists =
   | "lista"
   | "codigo"
   | "pin"
-  | "camera"
   | "formulario"
   | "processar"
   | "sucesso"
@@ -72,6 +68,36 @@ function eErroDeRede(error: unknown): boolean {
   const e = error as Record<string, unknown>;
   if (e["code"]) return false; // servidor respondeu → não é rede
   return /network|fetch|timeout|failed/i.test(String(e["message"] ?? ""));
+}
+
+// O fetch do React Native não tem tempo-limite por omissão: se a resposta se
+// perder (rede instável), a promise fica pendurada e o ecrã "A submeter…"
+// nunca sai — foi o spinner infinito observado no teste de cozinha (R2b1).
+// Este guarda garante que a promise do submit termina sempre.
+const TEMPO_LIMITE_SUBMIT_MS = 20000;
+
+function comTempoLimite<T>(promessa: PromiseLike<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const temporizador = setTimeout(() => {
+      reject(
+        new Error(
+          "O servidor não respondeu dentro do tempo esperado. " +
+            "A checklist pode ter ficado registada — confirme com o gestor " +
+            "antes de a preencher de novo.",
+        ),
+      );
+    }, ms);
+    promessa.then(
+      (v) => {
+        clearTimeout(temporizador);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(temporizador);
+        reject(e);
+      },
+    );
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -97,13 +123,8 @@ export default function ChecklistsScreen({
   const [codigo, setCodigo] = useState("");
   const [pin, setPin] = useState("");
 
-  // --- Câmara ---------------------------------------------------------------
-  const [perm, requestPerm] = useCameraPermissions();
-  const cameraRef = useRef<CameraView>(null);
-  const [fotoBase64, setFotoBase64] = useState<string | null>(null);
-
   // --- Formulário -----------------------------------------------------------
-  // momento carimbado ao entrar no formulário (após auth + foto)
+  // momento carimbado ao entrar no formulário (após código + PIN)
   const [momentoDispositivo, setMomentoDispositivo] = useState("");
   // respostas: itemId → valor (string; numéricos já normalizados)
   const [respostas, setRespostas] = useState<Record<string, string>>({});
@@ -119,10 +140,6 @@ export default function ChecklistsScreen({
     acoes: number;
   } | null>(null);
   const [textoErro, setTextoErro] = useState("");
-  // Aviso de upload de foto: o registo já persistiu no servidor, mas a foto
-  // de atribuição não chegou ao bucket. Visível no ecrã de sucesso (regra
-  // "erros nunca são engolidos" — CLAUDE.md).
-  const [avisoFoto, setAvisoFoto] = useState<string | null>(null);
 
   const emCurso = useRef(false);
 
@@ -184,7 +201,6 @@ export default function ChecklistsScreen({
   function reset() {
     setCodigo("");
     setPin("");
-    setFotoBase64(null);
     setChecklistSel(null);
     setMomentoDispositivo("");
     setRespostas({});
@@ -192,7 +208,6 @@ export default function ChecklistsScreen({
     setItemNumericoAtivo(null);
     setResumoSucesso(null);
     setTextoErro("");
-    setAvisoFoto(null);
     emCurso.current = false;
     setFase("lista");
   }
@@ -227,41 +242,11 @@ export default function ChecklistsScreen({
     setFase("pin");
   }
 
-  async function avancarParaCamera() {
+  function avancarParaFormulario() {
     if (pin.trim().length === 0) return;
-    // Validação de formato apenas; a validação real é server-side no submit
-    if (!perm?.granted) {
-      const r = await requestPerm();
-      if (!r.granted) return falhar("Sem permissão de câmara.");
-    }
-    setFase("camera");
-  }
-
-  // --- Câmara ---------------------------------------------------------------
-  async function capturarFoto() {
-    if (emCurso.current || !cameraRef.current) return;
-    emCurso.current = true;
-
-    let base64: string | undefined;
-    try {
-      const foto = await cameraRef.current.takePictureAsync({
-        quality: 0.5,
-        base64: true,
-      });
-      base64 = foto?.base64;
-    } catch {
-      emCurso.current = false;
-      return falhar("Falha ao capturar a foto.");
-    }
-    if (!base64) {
-      emCurso.current = false;
-      return falhar("Falha ao capturar a foto.");
-    }
-
-    setFotoBase64(base64);
-    // momento_dispositivo carimbado ao entrar no formulário (após auth + foto)
+    // Validação de formato apenas; a validação real é server-side no submit.
+    // momento_dispositivo carimbado ao entrar no formulário (após código + PIN)
     setMomentoDispositivo(new Date().toISOString());
-    emCurso.current = false;
     setFase("formulario");
   }
 
@@ -279,6 +264,17 @@ export default function ChecklistsScreen({
     setRespostas((prev) => {
       const atual = prev[itemId] ?? "";
       return { ...prev, [itemId]: atual.slice(0, -1) };
+    });
+  }
+  // Alterna o sinal do valor: os congelados vivem nos −18 °C e o teclado
+  // não tem tecla de menos — o ± prefixa/remova o hífen ASCII.
+  function alternarSinalNumerico(itemId: string) {
+    setRespostas((prev) => {
+      const atual = prev[itemId] ?? "";
+      return {
+        ...prev,
+        [itemId]: atual.startsWith("-") ? atual.slice(1) : "-" + atual,
+      };
     });
   }
 
@@ -322,7 +318,7 @@ export default function ChecklistsScreen({
 
   // --- Submeter checklist --------------------------------------------------
   async function submeterChecklist() {
-    if (emCurso.current || !checklistSel || !fotoBase64) return;
+    if (emCurso.current || !checklistSel) return;
     if (!estaOnline) {
       return falhar(
         "Sem ligação. Não é possível submeter uma checklist sem rede.",
@@ -380,18 +376,22 @@ export default function ChecklistsScreen({
         descricao: acoes[id]!.trim(),
       }));
 
-    // Chamada ao servidor
+    // Chamada ao servidor — com tempo-limite: a promise nunca fica pendurada
+    // (causa do spinner infinito do teste de cozinha).
     let data: Record<string, unknown> | null = null;
     let error: { message?: string } | null = null;
     try {
-      const resp = await supabase.rpc("registar_checklist", {
-        p_codigo_pessoal: codigo.trim(),
-        p_pin: pin.trim(),
-        p_versao_id: checklistSel.versao_id,
-        p_momento_dispositivo: momentoDispositivo,
-        p_respostas: payloadRespostas,
-        p_acoes: payloadAcoes,
-      });
+      const resp = await comTempoLimite(
+        supabase.rpc("registar_checklist", {
+          p_codigo_pessoal: codigo.trim(),
+          p_pin: pin.trim(),
+          p_versao_id: checklistSel.versao_id,
+          p_momento_dispositivo: momentoDispositivo,
+          p_respostas: payloadRespostas,
+          p_acoes: payloadAcoes,
+        }),
+        TEMPO_LIMITE_SUBMIT_MS,
+      );
       data = (resp.data as Record<string, unknown>) ?? null;
       error = resp.error as { message?: string } | null;
     } catch (e: unknown) {
@@ -408,35 +408,6 @@ export default function ChecklistsScreen({
     if (!data) {
       emCurso.current = false;
       return falhar("Resposta inesperada do servidor (sem dados).");
-    }
-
-    const fotoPath = data["foto_path"] as string | null;
-
-    // Upload da foto de atribuição ao bucket picagens.
-    // Não abortar nem mostrar ecrã de erro — o registo já persistiu no servidor.
-    // Em caso de falha, guardar em avisoFoto para mostrar no ecrã de sucesso
-    // (regra "erros nunca são engolidos").
-    if (fotoPath && fotoBase64) {
-      try {
-        const buffer = decode(fotoBase64);
-        const { error: upErr } = await supabase.storage
-          .from("picagens")
-          .upload(fotoPath, buffer, {
-            contentType: "image/jpeg",
-            upsert: false,
-          });
-        if (upErr) {
-          setAvisoFoto(
-            `O registo foi guardado, mas a foto de atribuição não foi carregada: ${upErr.message}`,
-          );
-        }
-      } catch (e: unknown) {
-        const msg =
-          (e as { message?: string })?.message ?? String(e);
-        setAvisoFoto(
-          `O registo foi guardado, mas a foto de atribuição não foi carregada: ${msg}`,
-        );
-      }
     }
 
     emCurso.current = false;
@@ -467,7 +438,7 @@ export default function ChecklistsScreen({
   return (
     <View style={s.root}>
       {/* Cabeçalho com nome da loja */}
-      {lojaNome && fase !== "camera" && fase !== "sucesso" ? (
+      {lojaNome && fase !== "sucesso" ? (
         <Text style={s.lojaLabel}>{lojaNome}</Text>
       ) : null}
 
@@ -556,45 +527,14 @@ export default function ChecklistsScreen({
           mascarar
           onTecla={premirTeclaAuth}
           onApagar={apagarAuth}
-          acaoLabel="Avançar"
+          acaoLabel="Preencher"
           acaoAtiva={pin.length > 0}
-          onAcao={avancarParaCamera}
+          onAcao={avancarParaFormulario}
           onVoltar={() => {
             setPin("");
             setFase("codigo");
           }}
         />
-      )}
-
-      {/* ===== CÂMARA ===== */}
-      {fase === "camera" && (
-        <View style={s.cameraWrap}>
-          <Text style={s.cameraTitulo}>
-            {checklistSel?.nome ?? "Checklist"}
-            {"\n"}Foto de confirmação
-          </Text>
-
-          <View style={s.circulo}>
-            <CameraView
-              ref={cameraRef}
-              style={StyleSheet.absoluteFill}
-              facing="front"
-            />
-          </View>
-
-          <Image
-            source={require("./assets/wordmark-papel.png")}
-            style={s.wordmark}
-            resizeMode="contain"
-          />
-
-          <Pressable style={s.shutter} onPress={capturarFoto}>
-            <Text style={s.shutterTxt}>Confirmar e preencher</Text>
-          </Pressable>
-          <Pressable style={s.link} onPress={() => setFase("pin")}>
-            <Text style={[s.linkTxt, { color: CINZA }]}>Cancelar</Text>
-          </Pressable>
-        </View>
       )}
 
       {/* ===== FORMULÁRIO ===== */}
@@ -644,6 +584,7 @@ export default function ChecklistsScreen({
               valor={respostas[itemNumericoAtivo] ?? ""}
               onTecla={(t) => premirTeclaNumerico(itemNumericoAtivo, t)}
               onApagar={() => apagarNumerico(itemNumericoAtivo)}
+              onAlternarSinal={() => alternarSinalNumerico(itemNumericoAtivo)}
               onFechar={() => setItemNumericoAtivo(null)}
             />
           )}
@@ -685,12 +626,6 @@ export default function ChecklistsScreen({
               ? ` · ${resumoSucesso.naoConformes} não ${resumoSucesso.naoConformes === 1 ? "conforme" : "conformes"} corrigida${resumoSucesso.naoConformes === 1 ? "" : "s"}`
               : " · tudo conforme"}
           </Text>
-          {/* Aviso de upload de foto falhado — registo persistiu, mas foto em falta */}
-          {avisoFoto ? (
-            <View style={s.avisoFotoWrap}>
-              <Text style={s.avisoFotoTxt}>{avisoFoto}</Text>
-            </View>
-          ) : null}
         </View>
       )}
 
@@ -775,15 +710,25 @@ function KeypadNumerico(props: {
   valor: string;
   onTecla: (t: string) => void;
   onApagar: () => void;
+  onAlternarSinal: () => void;
   onFechar: () => void;
 }) {
   return (
     <View style={s.keypadNumPanel}>
       <View style={s.keypadNumVisorRow}>
         <Text style={s.keypadNumVisor}>{props.valor || "0"}</Text>
-        <Pressable style={s.keypadNumFechar} onPress={props.onFechar}>
-          <Text style={s.keypadNumFecharTxt}>Fechar ✓</Text>
-        </Pressable>
+        <View style={s.keypadNumBotoes}>
+          {/* ± ao lado do campo: congelados vivem nos −18 °C */}
+          <Pressable
+            style={s.keypadNumSinal}
+            onPress={props.onAlternarSinal}
+          >
+            <Text style={s.keypadNumSinalTxt}>±</Text>
+          </Pressable>
+          <Pressable style={s.keypadNumFechar} onPress={props.onFechar}>
+            <Text style={s.keypadNumFecharTxt}>Fechar ✓</Text>
+          </Pressable>
+        </View>
       </View>
       <View style={s.grid}>
         {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
@@ -1100,47 +1045,6 @@ const s = StyleSheet.create({
   link: { marginTop: 22 },
   linkTxt: { fontSize: 15, color: CINZA, textDecorationLine: "underline" },
 
-  // --- Câmara ---------------------------------------------------------------
-  cameraWrap: {
-    flex: 1,
-    backgroundColor: TINTA,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  cameraTitulo: {
-    color: PAPEL,
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 24,
-    textAlign: "center",
-    lineHeight: 28,
-  },
-  circulo: {
-    width: CIRCULO,
-    height: CIRCULO,
-    borderRadius: CIRCULO / 2,
-    overflow: "hidden",
-    backgroundColor: "#000",
-    borderWidth: 3,
-    borderColor: TEAL,
-  },
-  wordmark: {
-    width: 180,
-    height: 44,
-    marginTop: 28,
-    marginBottom: 8,
-    opacity: 0.95,
-  },
-  shutter: {
-    backgroundColor: TEAL,
-    paddingVertical: 18,
-    paddingHorizontal: 40,
-    borderRadius: 16,
-    marginTop: 16,
-  },
-  shutterTxt: { color: PAPEL, fontSize: 20, fontWeight: "700" },
-
   // --- Formulário -----------------------------------------------------------
   formularioCabecalho: {
     paddingTop: 72,
@@ -1280,6 +1184,20 @@ const s = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 2,
   },
+  keypadNumBotoes: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  keypadNumSinal: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E3E1DA",
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+  },
+  keypadNumSinalTxt: { color: TINTA, fontWeight: "700", fontSize: 20 },
   keypadNumFechar: {
     backgroundColor: TEAL,
     paddingVertical: 8,
@@ -1331,25 +1249,6 @@ const s = StyleSheet.create({
     color: PAPEL,
     opacity: 0.85,
     textAlign: "center",
-  },
-  // Aviso amarelo no ecrã de sucesso quando o upload da foto falhou.
-  // O registo já persistiu — o aviso é informativo, não bloqueante.
-  avisoFotoWrap: {
-    backgroundColor: "#E9A23B22",
-    borderColor: "#E9A23B",
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginTop: 20,
-    maxWidth: 360,
-  },
-  avisoFotoTxt: {
-    fontSize: 13,
-    color: "#E9A23B",
-    fontWeight: "600",
-    textAlign: "center",
-    lineHeight: 20,
   },
   erroTxt: {
     fontSize: 16,
