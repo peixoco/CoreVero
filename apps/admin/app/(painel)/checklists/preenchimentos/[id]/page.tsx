@@ -251,7 +251,18 @@ export default function PreenchimentoDetalhe() {
           )}
         </div>
 
-        {/* Foto de atribuição */}
+        {/* Proveniência do registo: instâncias antigas têm foto de atribuição
+            (exibida enquanto a foto viver); desde o R2b1 a checklist é
+            autenticada só por código + PIN e a verificacao nasce sem foto. */}
+        {instancia.verificacao && !instancia.verificacao.foto_url && (
+          <div className="mt-4 pt-4 border-t border-black/5">
+            <p className="text-sm text-cinza">
+              Registo autenticado por{" "}
+              <span className="font-medium text-tinta">código + PIN</span>{" "}
+              (sem foto de atribuição — exclusiva da picagem).
+            </p>
+          </div>
+        )}
         {instancia.verificacao?.foto_url && (
           <div className="mt-4 pt-4 border-t border-black/5">
             <p className="text-xs text-cinza mb-2">
@@ -317,7 +328,8 @@ export default function PreenchimentoDetalhe() {
               const tipoResposta = resp.item?.tipo_resposta ?? "texto";
               const unidade = resp.item?.unidade ?? null;
               const valor = valorFormatado(resp.valor, tipoResposta, unidade);
-              const temAcao = resp.acoes.length > 0;
+              const acoes = resp.acoes ?? [];
+              const temAcao = acoes.length > 0;
 
               return (
                 <div
@@ -363,7 +375,7 @@ export default function PreenchimentoDetalhe() {
                       {!resp.conforme && (
                         <div className="mt-2">
                           {temAcao ? (
-                            resp.acoes.map((acao, ai) => (
+                            acoes.map((acao, ai) => (
                               <div
                                 key={ai}
                                 className="mt-1 flex items-start gap-2 text-sm"
